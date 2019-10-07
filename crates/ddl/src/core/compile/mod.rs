@@ -2,3 +2,4 @@
 
 pub mod doc;
 pub mod rust;
+pub mod stratified;

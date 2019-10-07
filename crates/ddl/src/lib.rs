@@ -7,4 +7,5 @@ mod ieee754;
 pub mod lexer;
 pub mod literal;
 pub mod rust;
+pub mod stratified;
 pub mod surface;
