@@ -1,1 +1,1 @@
-Test = ! : Bool;
+Test = ! : primitive Bool;

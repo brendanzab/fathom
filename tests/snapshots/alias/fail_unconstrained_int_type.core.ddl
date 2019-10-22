@@ -1,1 +1,1 @@
-TestInt = Int;
+TestInt = primitive Int;

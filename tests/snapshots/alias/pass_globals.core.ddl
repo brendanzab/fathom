@@ -4,48 +4,48 @@ TestType = Type;
 
 TestFormat = Format;
 
-TestU8 = U8;
+TestU8 = primitive U8;
 
-TestU16Le = U16Le;
+TestU16Le = primitive U16Le;
 
-TestU16Be = U16Be;
+TestU16Be = primitive U16Be;
 
-TestU32Le = U32Le;
+TestU32Le = primitive U32Le;
 
-TestU32Be = U32Be;
+TestU32Be = primitive U32Be;
 
-TestU64Le = U64Le;
+TestU64Le = primitive U64Le;
 
-TestU64Be = U64Be;
+TestU64Be = primitive U64Be;
 
-TestS8 = S8;
+TestS8 = primitive S8;
 
-TestS16Le = S16Le;
+TestS16Le = primitive S16Le;
 
-TestS16Be = S16Be;
+TestS16Be = primitive S16Be;
 
-TestS32Le = S32Le;
+TestS32Le = primitive S32Le;
 
-TestS32Be = S32Be;
+TestS32Be = primitive S32Be;
 
-TestS64Le = S64Le;
+TestS64Le = primitive S64Le;
 
-TestS64Be = S64Be;
+TestS64Be = primitive S64Be;
 
-TestF32Le = F32Le;
+TestF32Le = primitive F32Le;
 
-TestF32Be = F32Be;
+TestF32Be = primitive F32Be;
 
-TestF64Le = F64Le;
+TestF64Le = primitive F64Le;
 
-TestF64Be = F64Be;
+TestF64Be = primitive F64Be;
 
-TestBool = Bool;
+TestBool = primitive Bool;
 
-TestF32 = F32;
+TestF32 = primitive F32;
 
-TestF64 = F64;
+TestF64 = primitive F64;
 
-test_true = true;
+test_true = primitive true;
 
-test_false = false;
+test_false = primitive false;

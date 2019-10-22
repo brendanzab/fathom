@@ -1,3 +1,3 @@
 //! Test annotated annotations.
 
-Test = (U8 : Format) : Format;
+Test = (primitive U8 : Format) : Format;

@@ -283,28 +283,32 @@ pub fn check_term(
         (surface::Term::Paren(_, surface_term), expected_ty) => {
             check_term(context, surface_term, expected_ty, report)
         }
-        (surface::Term::NumberLiteral(span, literal), _) => match expected_ty {
-            core::Value::IntType => match literal.parse_big_int(context.file_id, report) {
-                Some(value) => core::Term::IntConst(*span, value),
-                None => core::Term::Error(*span),
-            },
-            core::Value::F32Type => match literal.parse_float(context.file_id, report) {
-                Some(value) => core::Term::F32Const(*span, value),
-                None => core::Term::Error(*span),
-            },
-            core::Value::F64Type => match literal.parse_float(context.file_id, report) {
-                Some(value) => core::Term::F64Const(*span, value),
-                None => core::Term::Error(*span),
-            },
-            _ => {
-                report(diagnostics::error::numeric_literal_not_supported(
-                    context.file_id,
-                    *span,
-                    expected_ty,
-                ));
-                core::Term::Error(surface_term.span())
+        (surface::Term::NumberLiteral(span, literal), _) => {
+            if let core::Value::Primitive(name) = expected_ty {
+                match name.as_str() {
+                    "Int" => match literal.parse_big_int(context.file_id, report) {
+                        Some(value) => return core::Term::IntConst(*span, value),
+                        None => return core::Term::Error(*span),
+                    },
+                    "F32" => match literal.parse_float(context.file_id, report) {
+                        Some(value) => return core::Term::F32Const(*span, value),
+                        None => return core::Term::Error(*span),
+                    },
+                    "F64" => match literal.parse_float(context.file_id, report) {
+                        Some(value) => return core::Term::F64Const(*span, value),
+                        None => return core::Term::Error(*span),
+                    },
+                    _ => {}
+                }
             }
-        },
+
+            report(diagnostics::error::numeric_literal_not_supported(
+                context.file_id,
+                *span,
+                expected_ty,
+            ));
+            core::Term::Error(surface_term.span())
+        }
         (surface_term, expected_ty) => {
             let (core_term, synth_ty) = synth_term(context, surface_term, report);
 
@@ -330,8 +334,6 @@ pub fn synth_term(
     surface_term: &surface::Term,
     report: &mut dyn FnMut(Diagnostic),
 ) -> (core::Term, core::Value) {
-    use crate::core::Universe::{Format, Kind, Type};
-
     match surface_term {
         surface::Term::Paren(_, surface_term) => synth_term(context, surface_term, report),
         surface::Term::Ann(surface_term, surface_ty) => {
@@ -340,12 +342,19 @@ pub fn synth_term(
             let core_term = check_term(context, surface_term, &ty, report);
             (core::Term::Ann(Arc::new(core_term), Arc::new(core_ty)), ty)
         }
-        surface::Term::Var(span, name) => match context.items.get(name.as_str()) {
-            Some((_, ty)) => (
-                core::Term::Item(*span, core::Label(name.to_string())),
-                ty.clone(),
-            ),
-            None => match name.as_str() {
+        surface::Term::Var(span, name) => {
+            if let Some((_, ty)) = context.items.get(name.as_str()) {
+                return (
+                    core::Term::Item(*span, core::Label(name.to_string())),
+                    ty.clone(),
+                );
+            }
+
+            if let Some(ty) = synth_primitive(name) {
+                return (core::Term::Primitive(*span, name.clone()), ty);
+            }
+
+            match name.as_str() {
                 "Kind" => {
                     report(diagnostics::kind_has_no_type(
                         Severity::Error,
@@ -355,37 +364,13 @@ pub fn synth_term(
                     (core::Term::Error(*span), core::Value::Error)
                 }
                 "Type" => (
-                    core::Term::Universe(*span, Type),
-                    core::Value::Universe(Kind),
+                    core::Term::Universe(*span, core::Universe::Type),
+                    core::Value::Universe(core::Universe::Kind),
                 ),
                 "Format" => (
-                    core::Term::Universe(*span, Format),
-                    core::Value::Universe(Kind),
+                    core::Term::Universe(*span, core::Universe::Format),
+                    core::Value::Universe(core::Universe::Kind),
                 ),
-                "U8" => (core::Term::U8Type(*span), core::Value::Universe(Format)),
-                "U16Le" => (core::Term::U16LeType(*span), core::Value::Universe(Format)),
-                "U16Be" => (core::Term::U16BeType(*span), core::Value::Universe(Format)),
-                "U32Le" => (core::Term::U32LeType(*span), core::Value::Universe(Format)),
-                "U32Be" => (core::Term::U32BeType(*span), core::Value::Universe(Format)),
-                "U64Le" => (core::Term::U64LeType(*span), core::Value::Universe(Format)),
-                "U64Be" => (core::Term::U64BeType(*span), core::Value::Universe(Format)),
-                "S8" => (core::Term::S8Type(*span), core::Value::Universe(Format)),
-                "S16Le" => (core::Term::S16LeType(*span), core::Value::Universe(Format)),
-                "S16Be" => (core::Term::S16BeType(*span), core::Value::Universe(Format)),
-                "S32Le" => (core::Term::S32LeType(*span), core::Value::Universe(Format)),
-                "S32Be" => (core::Term::S32BeType(*span), core::Value::Universe(Format)),
-                "S64Le" => (core::Term::S64LeType(*span), core::Value::Universe(Format)),
-                "S64Be" => (core::Term::S64BeType(*span), core::Value::Universe(Format)),
-                "F32Le" => (core::Term::F32LeType(*span), core::Value::Universe(Format)),
-                "F32Be" => (core::Term::F32BeType(*span), core::Value::Universe(Format)),
-                "F64Le" => (core::Term::F64LeType(*span), core::Value::Universe(Format)),
-                "F64Be" => (core::Term::F64BeType(*span), core::Value::Universe(Format)),
-                "Bool" => (core::Term::BoolType(*span), core::Value::Universe(Type)),
-                "Int" => (core::Term::IntType(*span), core::Value::Universe(Type)),
-                "F32" => (core::Term::F32Type(*span), core::Value::Universe(Type)),
-                "F64" => (core::Term::F64Type(*span), core::Value::Universe(Type)),
-                "true" => (core::Term::BoolConst(*span, true), core::Value::BoolType),
-                "false" => (core::Term::BoolConst(*span, false), core::Value::BoolType),
                 _ => {
                     report(diagnostics::error::var_name_not_found(
                         context.file_id,
@@ -395,8 +380,8 @@ pub fn synth_term(
 
                     (core::Term::Error(*span), core::Value::Error)
                 }
-            },
-        },
+            }
+        }
         surface::Term::NumberLiteral(span, _) => {
             report(diagnostics::error::ambiguous_numeric_literal(
                 context.file_id,
@@ -406,5 +391,16 @@ pub fn synth_term(
             (core::Term::Error(*span), core::Value::Error)
         }
         surface::Term::Error(span) => (core::Term::Error(*span), core::Value::Error),
+    }
+}
+
+pub fn synth_primitive(name: &str) -> Option<core::Value> {
+    match name {
+        "U8" | "U16Le" | "U16Be" | "U32Le" | "U32Be" | "U64Le" | "U64Be" | "S8" | "S16Le"
+        | "S16Be" | "S32Le" | "S32Be" | "S64Le" | "S64Be" | "F32Le" | "F32Be" | "F64Le"
+        | "F64Be" => Some(core::Value::Universe(core::Universe::Format)),
+        "Bool" | "Int" | "F32" | "F64" => Some(core::Value::Universe(core::Universe::Type)),
+        "true" | "false" => Some(core::Value::Primitive("Bool".to_owned())),
+        _ => None,
     }
 }

@@ -303,4 +303,16 @@ pub mod bug {
             notes: vec![],
         }
     }
+
+    pub fn unknown_primitive(file_id: FileId, name: &str, span: Span) -> Diagnostic {
+        Diagnostic {
+            severity: Severity::Bug,
+            code: None,
+            message: format!("unknown primitive `{}`", name),
+            primary_label: Label::new(file_id, span, "unknown primitive"),
+            secondary_labels: vec![],
+            // TODO: provide suggestions
+            notes: vec![],
+        }
+    }
 }

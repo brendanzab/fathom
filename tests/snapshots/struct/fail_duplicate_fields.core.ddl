@@ -1,4 +1,4 @@
 struct Pair {
-    first : U8,
-    second : U8,
+    first : primitive U8,
+    second : primitive U8,
 }

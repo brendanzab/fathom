@@ -1,3 +1,3 @@
 //! Test simple aliases.
 
-Byte = U8;
+Byte = primitive U8;

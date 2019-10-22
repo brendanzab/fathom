@@ -249,31 +249,28 @@ pub fn synth_term(
                 Value::Error
             }
         },
-        Term::U8Type(_)
-        | Term::U16LeType(_)
-        | Term::U16BeType(_)
-        | Term::U32LeType(_)
-        | Term::U32BeType(_)
-        | Term::U64LeType(_)
-        | Term::U64BeType(_)
-        | Term::S8Type(_)
-        | Term::S16LeType(_)
-        | Term::S16BeType(_)
-        | Term::S32LeType(_)
-        | Term::S32BeType(_)
-        | Term::S64LeType(_)
-        | Term::S64BeType(_)
-        | Term::F32LeType(_)
-        | Term::F32BeType(_)
-        | Term::F64LeType(_)
-        | Term::F64BeType(_) => Value::Universe(Universe::Format),
-        Term::BoolType(_) | Term::IntType(_) | Term::F32Type(_) | Term::F64Type(_) => {
-            Value::Universe(Universe::Type)
-        }
-        Term::BoolConst(_, _) => Value::BoolType,
-        Term::IntConst(_, _) => Value::IntType,
-        Term::F32Const(_, _) => Value::F32Type,
-        Term::F64Const(_, _) => Value::F64Type,
+        Term::Primitive(span, name) => match synth_primitive(name) {
+            Some(ty) => ty,
+            None => {
+                let file_id = context.file_id;
+                report(diagnostics::bug::unknown_primitive(file_id, &name, *span));
+                Value::Error
+            }
+        },
+        Term::IntConst(_, _) => Value::Primitive("Int".to_owned()),
+        Term::F32Const(_, _) => Value::Primitive("F32".to_owned()),
+        Term::F64Const(_, _) => Value::Primitive("F64".to_owned()),
         Term::Error(_) => Value::Error,
+    }
+}
+
+pub fn synth_primitive(name: &str) -> Option<Value> {
+    match name {
+        "U8" | "U16Le" | "U16Be" | "U32Le" | "U32Be" | "U64Le" | "U64Be" | "S8" | "S16Le"
+        | "S16Be" | "S32Le" | "S32Be" | "S64Le" | "S64Be" | "F32Le" | "F32Be" | "F64Le"
+        | "F64Be" => Some(Value::Universe(Universe::Format)),
+        "Bool" | "Int" | "F32" | "F64" => Some(Value::Universe(Universe::Type)),
+        "true" | "false" => Some(Value::Primitive("Bool".to_owned())),
+        _ => None,
     }
 }

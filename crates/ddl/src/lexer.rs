@@ -19,6 +19,7 @@ lazy_static::lazy_static! {
         "f64".to_owned() => Token::F64,
         "int".to_owned() => Token::Int,
         "item".to_owned() => Token::Item,
+        "primitive".to_owned() => Token::Primitive,
         "struct".to_owned() => Token::Struct,
     };
 }
@@ -47,6 +48,8 @@ pub enum Token {
     Int,
     /// Keyword `item`
     Item,
+    /// Keyword `primitive`
+    Primitive,
     /// Keyword `struct`
     Struct,
 
@@ -85,6 +88,7 @@ impl<'a> fmt::Display for Token {
             Token::F64 => write!(f, "f64"),
             Token::Int => write!(f, "int"),
             Token::Item => write!(f, "item"),
+            Token::Primitive => write!(f, "primitive"),
             Token::Struct => write!(f, "struct"),
 
             Token::OpenBrace => write!(f, "{{"),

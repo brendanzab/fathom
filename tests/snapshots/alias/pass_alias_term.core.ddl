@@ -1,4 +1,4 @@
 /// Test that one can refer to local term aliases in aliases.
-Foo = true;
+Foo = primitive true;
 
 Bar = item Foo;

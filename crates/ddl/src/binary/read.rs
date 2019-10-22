@@ -71,33 +71,38 @@ pub fn read_ty(
             None => Err(ddl_rt::ReadError::InvalidDataDescription),
         },
         core::Term::Ann(term, _) => read_ty(context, term, ctxt),
-        core::Term::U8Type(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U8>()?))),
-        core::Term::U16LeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U16Le>()?))),
-        core::Term::U16BeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U16Be>()?))),
-        core::Term::U32LeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U32Le>()?))),
-        core::Term::U32BeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U32Be>()?))),
-        core::Term::U64LeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U64Le>()?))),
-        core::Term::U64BeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U64Be>()?))),
-        core::Term::S8Type(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I8>()?))),
-        core::Term::S16LeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I16Le>()?))),
-        core::Term::S16BeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I16Be>()?))),
-        core::Term::S32LeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I32Le>()?))),
-        core::Term::S32BeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I32Be>()?))),
-        core::Term::S64LeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I64Le>()?))),
-        core::Term::S64BeType(_) => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I64Be>()?))),
-        core::Term::F32LeType(_) => Ok(Term::F32(ctxt.read::<ddl_rt::F32Le>()?)),
-        core::Term::F32BeType(_) => Ok(Term::F32(ctxt.read::<ddl_rt::F32Be>()?)),
-        core::Term::F64LeType(_) => Ok(Term::F64(ctxt.read::<ddl_rt::F64Le>()?)),
-        core::Term::F64BeType(_) => Ok(Term::F64(ctxt.read::<ddl_rt::F64Be>()?)),
+        core::Term::Primitive(_, name) => read_primitive_ty(name, ctxt),
         core::Term::Universe(_, _)
-        | core::Term::BoolType(_)
-        | core::Term::IntType(_)
-        | core::Term::F32Type(_)
-        | core::Term::F64Type(_)
-        | core::Term::BoolConst(_, _)
         | core::Term::IntConst(_, _)
         | core::Term::F32Const(_, _)
         | core::Term::F64Const(_, _)
         | core::Term::Error(_) => Err(ddl_rt::ReadError::InvalidDataDescription),
+    }
+}
+
+pub fn read_primitive_ty(
+    name: &str,
+    ctxt: &mut ddl_rt::ReadCtxt<'_>,
+) -> Result<Term, ddl_rt::ReadError> {
+    match name {
+        "U8" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U8>()?))),
+        "U16Le" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U16Le>()?))),
+        "U16Be" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U16Be>()?))),
+        "U32Le" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U32Le>()?))),
+        "U32Be" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U32Be>()?))),
+        "U64Le" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U64Le>()?))),
+        "U64Be" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::U64Be>()?))),
+        "S8" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I8>()?))),
+        "S16Le" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I16Le>()?))),
+        "S16Be" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I16Be>()?))),
+        "S32Le" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I32Le>()?))),
+        "S32Be" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I32Be>()?))),
+        "S64Le" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I64Le>()?))),
+        "S64Be" => Ok(Term::Int(BigInt::from(ctxt.read::<ddl_rt::I64Be>()?))),
+        "F32Le" => Ok(Term::F32(ctxt.read::<ddl_rt::F32Le>()?)),
+        "F32Be" => Ok(Term::F32(ctxt.read::<ddl_rt::F32Be>()?)),
+        "F64Le" => Ok(Term::F64(ctxt.read::<ddl_rt::F64Le>()?)),
+        "F64Be" => Ok(Term::F64(ctxt.read::<ddl_rt::F64Be>()?)),
+        _ => Err(ddl_rt::ReadError::InvalidDataDescription),
     }
 }

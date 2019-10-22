@@ -24,6 +24,7 @@ extern {
         "f64" => Token::F64,
         "int" => Token::Int,
         "item" => Token::Item,
+        "primitive" => Token::Primitive,
         "struct" => Token::Struct,
 
         "{" => Token::OpenBrace,

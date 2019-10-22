@@ -217,13 +217,6 @@ fn compile_term(
 ) -> CompiledTerm {
     let file_id = context.file_id;
 
-    let host_ty = |ty, copy| CompiledTerm::Type(ty, Traits { copy, binary: None });
-    let format_ty = |ty, host_ty| {
-        let copy = Some(CopyTrait);
-        let binary = Some(BinaryTrait { host_ty });
-        CompiledTerm::Type(ty, Traits { copy, binary })
-    };
-
     match core_term {
         core::Term::Item(span, label) => match context.items.get(label) {
             Some(CompiledItem::Term(_, name, ty)) => {
@@ -240,34 +233,7 @@ fn compile_term(
             }
         },
         core::Term::Ann(term, _) => compile_term(context, term, report),
-        core::Term::U8Type(_) => format_ty(rust::Type::Rt(rust::RtType::U8), rust::Type::U8),
-        core::Term::U16LeType(_) => format_ty(rust::Type::Rt(rust::RtType::U16Le), rust::Type::U16),
-        core::Term::U16BeType(_) => format_ty(rust::Type::Rt(rust::RtType::U16Be), rust::Type::U16),
-        core::Term::U32LeType(_) => format_ty(rust::Type::Rt(rust::RtType::U32Le), rust::Type::U32),
-        core::Term::U32BeType(_) => format_ty(rust::Type::Rt(rust::RtType::U32Be), rust::Type::U32),
-        core::Term::U64LeType(_) => format_ty(rust::Type::Rt(rust::RtType::U64Le), rust::Type::U64),
-        core::Term::U64BeType(_) => format_ty(rust::Type::Rt(rust::RtType::U64Be), rust::Type::U64),
-        core::Term::S8Type(_) => format_ty(rust::Type::Rt(rust::RtType::I8), rust::Type::I8),
-        core::Term::S16LeType(_) => format_ty(rust::Type::Rt(rust::RtType::I16Le), rust::Type::I16),
-        core::Term::S16BeType(_) => format_ty(rust::Type::Rt(rust::RtType::I16Be), rust::Type::I16),
-        core::Term::S32LeType(_) => format_ty(rust::Type::Rt(rust::RtType::I32Le), rust::Type::I32),
-        core::Term::S32BeType(_) => format_ty(rust::Type::Rt(rust::RtType::I32Be), rust::Type::I32),
-        core::Term::S64LeType(_) => format_ty(rust::Type::Rt(rust::RtType::I64Le), rust::Type::I64),
-        core::Term::S64BeType(_) => format_ty(rust::Type::Rt(rust::RtType::I64Be), rust::Type::I64),
-        core::Term::F32LeType(_) => format_ty(rust::Type::Rt(rust::RtType::F32Le), rust::Type::F32),
-        core::Term::F32BeType(_) => format_ty(rust::Type::Rt(rust::RtType::F32Be), rust::Type::F32),
-        core::Term::F64LeType(_) => format_ty(rust::Type::Rt(rust::RtType::F64Le), rust::Type::F64),
-        core::Term::F64BeType(_) => format_ty(rust::Type::Rt(rust::RtType::F64Be), rust::Type::F64),
-        core::Term::BoolType(_) => host_ty(rust::Type::Bool, Some(CopyTrait)),
-        core::Term::IntType(span) => {
-            report(diagnostics::error::unconstrained_int(file_id, *span));
-            host_ty(rust::Type::Rt(rust::RtType::InvalidDataDescription), None)
-        }
-        core::Term::F32Type(_) => host_ty(rust::Type::F32, Some(CopyTrait)),
-        core::Term::F64Type(_) => host_ty(rust::Type::F64, Some(CopyTrait)),
-        core::Term::BoolConst(_, value) => {
-            CompiledTerm::Term(rust::Term::Bool(*value), rust::Type::Bool)
-        }
+        core::Term::Primitive(span, name) => compile_primitive_term(context, *span, name, report),
         core::Term::IntConst(span, value) => {
             use num_traits::cast::ToPrimitive;
 
@@ -292,6 +258,58 @@ fn compile_term(
         }
         core::Term::Universe(_, _) => CompiledTerm::Erased,
         core::Term::Error(_) => CompiledTerm::Error,
+    }
+}
+
+fn compile_primitive_term(
+    context: &ModuleContext,
+    span: Span,
+    name: &str,
+    report: &mut dyn FnMut(Diagnostic),
+) -> CompiledTerm {
+    let file_id = context.file_id;
+    let host_ty = |ty, copy| CompiledTerm::Type(ty, Traits { copy, binary: None });
+    let format_ty = |ty, host_ty| {
+        let copy = Some(CopyTrait);
+        let binary = Some(BinaryTrait { host_ty });
+        CompiledTerm::Type(ty, Traits { copy, binary })
+    };
+
+    match name {
+        "U8" => format_ty(rust::Type::Rt(rust::RtType::U8), rust::Type::U8),
+        "U16Le" => format_ty(rust::Type::Rt(rust::RtType::U16Le), rust::Type::U16),
+        "U16Be" => format_ty(rust::Type::Rt(rust::RtType::U16Be), rust::Type::U16),
+        "U32Le" => format_ty(rust::Type::Rt(rust::RtType::U32Le), rust::Type::U32),
+        "U32Be" => format_ty(rust::Type::Rt(rust::RtType::U32Be), rust::Type::U32),
+        "U64Le" => format_ty(rust::Type::Rt(rust::RtType::U64Le), rust::Type::U64),
+        "U64Be" => format_ty(rust::Type::Rt(rust::RtType::U64Be), rust::Type::U64),
+        "S8" => format_ty(rust::Type::Rt(rust::RtType::I8), rust::Type::I8),
+        "S16Le" => format_ty(rust::Type::Rt(rust::RtType::I16Le), rust::Type::I16),
+        "S16Be" => format_ty(rust::Type::Rt(rust::RtType::I16Be), rust::Type::I16),
+        "S32Le" => format_ty(rust::Type::Rt(rust::RtType::I32Le), rust::Type::I32),
+        "S32Be" => format_ty(rust::Type::Rt(rust::RtType::I32Be), rust::Type::I32),
+        "S64Le" => format_ty(rust::Type::Rt(rust::RtType::I64Le), rust::Type::I64),
+        "S64Be" => format_ty(rust::Type::Rt(rust::RtType::I64Be), rust::Type::I64),
+        "F32Le" => format_ty(rust::Type::Rt(rust::RtType::F32Le), rust::Type::F32),
+        "F32Be" => format_ty(rust::Type::Rt(rust::RtType::F32Be), rust::Type::F32),
+        "F64Le" => format_ty(rust::Type::Rt(rust::RtType::F64Le), rust::Type::F64),
+        "F64Be" => format_ty(rust::Type::Rt(rust::RtType::F64Be), rust::Type::F64),
+        "Bool" => host_ty(rust::Type::Bool, Some(CopyTrait)),
+        "Int" => {
+            report(diagnostics::error::unconstrained_int(file_id, span));
+            host_ty(rust::Type::Rt(rust::RtType::InvalidDataDescription), None)
+        }
+        "F32" => host_ty(rust::Type::F32, Some(CopyTrait)),
+        "F64" => host_ty(rust::Type::F64, Some(CopyTrait)),
+        "true" => CompiledTerm::Term(rust::Term::Bool(true), rust::Type::Bool),
+        "false" => CompiledTerm::Term(rust::Term::Bool(false), rust::Type::Bool),
+        name => {
+            let file_id = context.file_id;
+            report(crate::diagnostics::bug::unknown_primitive(
+                file_id, name, span,
+            ));
+            CompiledTerm::Error
+        }
     }
 }
 
