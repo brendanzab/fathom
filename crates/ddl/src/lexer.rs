@@ -1,11 +1,10 @@
-use codespan::{ByteIndex, ByteOffset, FileId, Files, Span};
+use codespan::{ByteIndex, ByteOffset, FileId, Files};
 use codespan_reporting::diagnostic::Diagnostic;
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::fmt;
 
 use crate::diagnostics;
-use crate::literal::{self, Sign};
 
 type Keywords = HashMap<String, Token>;
 
@@ -36,11 +35,11 @@ pub enum Token {
     /// Identifiers.
     Identifier(String),
     /// Numeric literals.
-    NumberLiteral(literal::Number),
+    NumberLiteral(String),
     /// String literals.
-    StringLiteral(literal::String),
+    StringLiteral(String),
     /// Character literals.
-    CharLiteral(literal::Char),
+    CharLiteral(String),
 
     /// Keyword `bool_elim`
     BoolElim,
@@ -68,16 +67,44 @@ pub enum Token {
     /// Close parenthesis:  `)`
     CloseParen,
 
+    /// And: `&`
+    And,
+    /// AndAnd: `&&`
+    AndAnd,
     /// Bang: `!`
     Bang,
+    /// Bang equals: `!=`
+    BangEquals,
     /// Colon: `:`
     Colon,
     /// Comma: `,`
     Comma,
+    /// Dash: `-`
+    Dash,
     /// Equals: `=`
     Equals,
+    /// Equals equals: `==`
+    EqualsEquals,
+    /// Forward slash: `/`
+    ForwardSlash,
+    /// Greater than: `>`
+    GreaterThan,
+    /// Greater than equals: `>=`
+    GreaterThanEquals,
+    /// Less than: `<`
+    LessThan,
+    /// Less than equals: `<=`
+    LessThanEquals,
+    /// Plus: `+`
+    Plus,
+    /// Pipe: `|`
+    Pipe,
+    /// Pipe pipe: `||`
+    PipePipe,
     /// Semicolon: `;`
     Semi,
+    /// Star: `*`
+    Star,
 }
 
 impl<'a> fmt::Display for Token {
@@ -104,11 +131,25 @@ impl<'a> fmt::Display for Token {
             Token::OpenParen => write!(f, "("),
             Token::CloseParen => write!(f, ")"),
 
+            Token::And => write!(f, "&"),
+            Token::AndAnd => write!(f, "&&"),
             Token::Bang => write!(f, "!"),
+            Token::BangEquals => write!(f, "!="),
             Token::Colon => write!(f, ":"),
             Token::Comma => write!(f, ","),
+            Token::Dash => write!(f, "-"),
             Token::Equals => write!(f, "="),
+            Token::EqualsEquals => write!(f, "=="),
+            Token::ForwardSlash => write!(f, "/"),
+            Token::GreaterThan => write!(f, "<"),
+            Token::GreaterThanEquals => write!(f, "<="),
+            Token::LessThan => write!(f, ">"),
+            Token::LessThanEquals => write!(f, ">="),
+            Token::Plus => write!(f, "+"),
+            Token::Pipe => write!(f, "|"),
+            Token::PipePipe => write!(f, "||"),
             Token::Semi => write!(f, ";"),
+            Token::Star => write!(f, "*"),
         }
     }
 }
@@ -187,20 +228,7 @@ impl<'input, 'keywords> Lexer<'input, 'keywords> {
         )))
     }
 
-    fn unexpected_eof<T>(&self, expected: &[&str]) -> Option<Result<T, Diagnostic>> {
-        Some(Err(diagnostics::error::unexpected_eof(
-            self.file_id,
-            self.token_end,
-            expected,
-        )))
-    }
-
-    fn consume_number(
-        &mut self,
-        start: ByteIndex,
-        sign: Option<Sign>,
-        first_digit: char,
-    ) -> Option<Result<SpannedToken, Diagnostic>> {
+    fn consume_number(&mut self, first_digit: char) -> Option<Result<SpannedToken, Diagnostic>> {
         let mut number = String::new();
         number.push(first_digit);
 
@@ -213,9 +241,7 @@ impl<'input, 'keywords> Lexer<'input, 'keywords> {
             }
         }
 
-        let number_span = Span::new(start, self.token_end);
-        let literal = literal::Number::new(sign, (number_span, number));
-        self.emit(Token::NumberLiteral(literal))
+        self.emit(Token::NumberLiteral(number))
     }
 
     fn consume_identifier(&mut self, start_ch: char) -> Option<Result<SpannedToken, Diagnostic>> {
@@ -245,70 +271,110 @@ impl<'input, 'keywords> Iterator for Lexer<'input, 'keywords> {
         'top: loop {
             let start = self.token_end;
             return match self.advance()? {
-                '/' => match self.advance() {
-                    Some('/') => match self.peek() {
-                        Some('/') => {
-                            let mut doc = String::new();
-                            self.advance();
-                            'doc_comment: loop {
+                '/' => match self.peek() {
+                    Some('/') => {
+                        self.advance();
+                        match self.peek() {
+                            Some('/') => {
+                                let mut doc = String::new();
+                                self.advance();
+                                'doc_comment: loop {
+                                    match self.advance() {
+                                        Some('\n') | Some('\r') | None => {
+                                            return self.emit(Token::DocComment(doc));
+                                        }
+                                        Some(ch) => {
+                                            doc.push(ch);
+                                            continue 'doc_comment;
+                                        }
+                                    }
+                                }
+                            }
+                            Some('!') => {
+                                let mut doc = String::new();
+                                self.advance();
+                                'inner_doc_comment: loop {
+                                    match self.advance() {
+                                        Some('\n') | Some('\r') | None => {
+                                            return self.emit(Token::InnerDocComment(doc));
+                                        }
+                                        Some(ch) => {
+                                            doc.push(ch);
+                                            continue 'inner_doc_comment;
+                                        }
+                                    }
+                                }
+                            }
+                            Some(_) | None => 'comment: loop {
                                 match self.advance() {
-                                    Some('\n') | Some('\r') | None => {
-                                        return self.emit(Token::DocComment(doc));
+                                    Some('\n') | Some('\r') => {
+                                        self.reset_start();
+                                        continue 'top;
                                     }
-                                    Some(ch) => {
-                                        doc.push(ch);
-                                        continue 'doc_comment;
-                                    }
+                                    Some(_) => continue 'comment,
+                                    None => return None,
                                 }
-                            }
+                            },
                         }
-                        Some('!') => {
-                            let mut doc = String::new();
-                            self.advance();
-                            'inner_doc_comment: loop {
-                                match self.advance() {
-                                    Some('\n') | Some('\r') | None => {
-                                        return self.emit(Token::InnerDocComment(doc));
-                                    }
-                                    Some(ch) => {
-                                        doc.push(ch);
-                                        continue 'inner_doc_comment;
-                                    }
-                                }
-                            }
-                        }
-                        Some(_) | None => 'comment: loop {
-                            match self.advance() {
-                                Some('\n') | Some('\r') => {
-                                    self.reset_start();
-                                    continue 'top;
-                                }
-                                Some(_) => continue 'comment,
-                                None => return None,
-                            }
-                        },
-                    },
-                    Some(ch) => self.unexpected_char(self.token_end, ch, &["`/`"]),
-                    None => self.unexpected_eof(&["`/`"]),
+                    }
+                    Some(_) | None => {
+                        self.advance();
+                        self.emit(Token::ForwardSlash)
+                    }
                 },
                 '{' => self.emit(Token::OpenBrace),
                 '}' => self.emit(Token::CloseBrace),
                 '(' => self.emit(Token::OpenParen),
                 ')' => self.emit(Token::CloseParen),
-                '!' => self.emit(Token::Bang),
+                '!' => match self.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.emit(Token::BangEquals)
+                    }
+                    Some(_) | None => self.emit(Token::Bang),
+                },
+                '&' => match self.peek() {
+                    Some('&') => {
+                        self.advance();
+                        self.emit(Token::AndAnd)
+                    }
+                    Some(_) | None => self.emit(Token::And),
+                },
                 ':' => self.emit(Token::Colon),
                 ',' => self.emit(Token::Comma),
-                '=' => self.emit(Token::Equals),
+                '-' => self.emit(Token::Dash),
+                '=' => match self.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.emit(Token::EqualsEquals)
+                    }
+                    Some(_) | None => self.emit(Token::Equals),
+                },
+                '>' => match self.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.emit(Token::GreaterThanEquals)
+                    }
+                    Some(_) | None => self.emit(Token::GreaterThan),
+                },
+                '<' => match self.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.emit(Token::LessThanEquals)
+                    }
+                    Some(_) | None => self.emit(Token::LessThan),
+                },
+                '+' => self.emit(Token::Plus),
+                '|' => match self.peek() {
+                    Some('|') => {
+                        self.advance();
+                        self.emit(Token::PipePipe)
+                    }
+                    Some(_) | None => self.emit(Token::Pipe),
+                },
                 ';' => self.emit(Token::Semi),
-                '+' => match self.advance()? {
-                    ch if is_dec_digit(ch) => self.consume_number(start, Some(Sign::Positive), ch),
-                    ch => self.unexpected_char(start, ch, &["decimal digit"]),
-                },
-                '-' => match self.advance()? {
-                    ch if is_dec_digit(ch) => self.consume_number(start, Some(Sign::Negative), ch),
-                    ch => self.unexpected_char(start, ch, &["decimal digit"]),
-                },
-                ch if is_dec_digit(ch) => self.consume_number(start, None, ch),
+                '*' => self.emit(Token::Star),
+                ch if is_dec_digit(ch) => self.consume_number(ch),
                 ch if is_identifier_start(ch) => self.consume_identifier(ch),
                 ch if is_whitespace(ch) => {
                     self.reset_start();
@@ -326,7 +392,7 @@ impl<'input, 'keywords> Iterator for Lexer<'input, 'keywords> {
                         "=",
                         ";",
                         "comment",    // `/`
-                        "number",     // '+' | '-' | dec-digit
+                        "number",     // dec-digit
                         "identifier", // identifier-start
                         "whitespace", // whitespace
                     ];

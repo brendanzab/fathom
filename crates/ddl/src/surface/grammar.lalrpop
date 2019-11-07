@@ -16,9 +16,9 @@ extern {
         "doc comment" => Token::DocComment(<String>),
         "inner doc comment" => Token::InnerDocComment(<String>),
         "identifier" => Token::Identifier(<String>),
-        "numeric literal" => Token::NumberLiteral(<literal::Number>),
-        "string literal" => Token::StringLiteral(<literal::String>),
-        "character literal" => Token::CharLiteral(<literal::Char>),
+        "numeric literal" => Token::NumberLiteral(<String>),
+        "string literal" => Token::StringLiteral(<String>),
+        "character literal" => Token::CharLiteral(<String>),
 
         "bool_elim" => Token::BoolElim,
         "else" => Token::Else,
@@ -34,11 +34,25 @@ extern {
         "(" => Token::OpenParen,
         ")" => Token::CloseParen,
 
+        "&" => Token::And,
+        "&&" => Token::AndAnd,
         "!" => Token::Bang,
+        "!=" => Token::BangEquals,
         ":" => Token::Colon,
         "," => Token::Comma,
+        "-" => Token::Dash,
         "=" => Token::Equals,
+        "==" => Token::EqualsEquals,
+        "/" => Token::ForwardSlash,
+        ">" => Token::GreaterThan,
+        ">=" => Token::GreaterThanEquals,
+        "<" => Token::LessThan,
+        "<=" => Token::LessThanEquals,
+        "+" => Token::Plus,
+        "|" => Token::Pipe,
+        "||" => Token::PipePipe,
         ";" => Token::Semi,
+        "*" => Token::Star,
     }
 }
 
@@ -92,13 +106,22 @@ TermAtomic: Term = {
         Term::Paren(Span::new(start, end), Box::new(term))
     },
     <name: Identifier> => Term::Var(name.0, name.1),
-    <start: @L> <literal: "numeric literal"> <end: @R> => {
-        Term::NumberLiteral(Span::new(start, end), literal)
-    },
+    <start: @L> <number: NumberLiteral> <end: @R> => Term::NumberLiteral(Span::new(start, end), number),
 };
 
 Identifier: (Span, String) = {
     <start: @L> <name: "identifier"> <end: @R> => {
         (Span::new(start, end), name)
     },
+};
+
+NumberLiteral: literal::Number  = {
+    <sign: Sign?> <start: @L> <number: "numeric literal"> <end: @R> => {
+        literal::Number { sign, number: (Span::new(start, end), number) }
+    },
+};
+
+Sign: literal::Sign = {
+    "+" => literal::Sign::Positive,
+    "-" => literal::Sign::Negative,
 };

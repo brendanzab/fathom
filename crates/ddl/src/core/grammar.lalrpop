@@ -17,9 +17,9 @@ extern {
         "doc comment" => Token::DocComment(<String>),
         "inner doc comment" => Token::InnerDocComment(<String>),
         "identifier" => Token::Identifier(<String>),
-        "numeric literal" => Token::NumberLiteral(<literal::Number>),
-        "string literal" => Token::StringLiteral(<literal::String>),
-        "character literal" => Token::CharLiteral(<literal::Char>),
+        "numeric literal" => Token::NumberLiteral(<String>),
+        "string literal" => Token::StringLiteral(<String>),
+        "character literal" => Token::CharLiteral(<String>),
 
         "bool_elim" => Token::BoolElim,
         "else" => Token::Else,
@@ -35,11 +35,25 @@ extern {
         "(" => Token::OpenParen,
         ")" => Token::CloseParen,
 
+        "&" => Token::And,
+        "&&" => Token::AndAnd,
         "!" => Token::Bang,
+        "!=" => Token::BangEquals,
         ":" => Token::Colon,
         "," => Token::Comma,
+        "-" => Token::Dash,
         "=" => Token::Equals,
+        "==" => Token::EqualsEquals,
+        "/" => Token::ForwardSlash,
+        ">" => Token::GreaterThanEquals,
+        ">=" => Token::GreaterThan,
+        "<" => Token::LessThan,
+        "<=" => Token::LessThanEquals,
+        "+" => Token::Plus,
+        "|" => Token::Pipe,
+        "||" => Token::PipePipe,
         ";" => Token::Semi,
+        "*" => Token::Star,
     }
 }
 
@@ -133,25 +147,36 @@ TermAtomic: Term = {
     <start: @L> "bool_elim" <head: Term> "{" <if_true: Term> "," <if_false: Term> "}" <end: @R> => {
         Term::BoolElim(Span::new(start, end), Arc::new(head), Arc::new(if_true), Arc::new(if_false))
     },
-    <start: @L> "int" <literal: "numeric literal"> <end: @R> => {
+    <start: @L> "int" <number: NumberLiteral> <end: @R> => {
         let span = Span::new(start, end);
-        match literal.parse_big_int(file_id, report) {
+        match number.parse_big_int(file_id, report) {
             Some(value) => Term::IntConst(span, value),
             None => Term::Error(span),
         }
     },
-    <start: @L> "f32" <literal: "numeric literal"> <end: @R> => {
+    <start: @L> "f32" <number: NumberLiteral> <end: @R> => {
         let span = Span::new(start, end);
-        match literal.parse_float(file_id, report) {
+        match number.parse_float(file_id, report) {
             Some(value) => Term::F32Const(span, value),
             None => Term::Error(span),
         }
     },
-    <start: @L> "f64" <literal: "numeric literal"> <end: @R> => {
+    <start: @L> "f64" <number: NumberLiteral> <end: @R> => {
         let span = Span::new(start, end);
-        match literal.parse_float(file_id, report) {
+        match number.parse_float(file_id, report) {
             Some(value) => Term::F64Const(span, value),
             None => Term::Error(span),
         }
     },
+};
+
+NumberLiteral: literal::Number = {
+    <sign: Sign?> <start: @L> <number: "numeric literal"> <end: @R> => {
+        literal::Number { sign, number: (Span::new(start, end), number) }
+    },
+};
+
+Sign: literal::Sign = {
+    "+" => literal::Sign::Positive,
+    "-" => literal::Sign::Negative,
 };
