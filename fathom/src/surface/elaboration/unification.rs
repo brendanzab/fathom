@@ -113,6 +113,8 @@ pub enum SpineError {
     RecordProj(Symbol),
     /// A constant match was found in the problem spine.
     ConstMatch,
+    /// A format representation was accessed in the problem spine.
+    FormatRepr,
 }
 
 /// An error that occurred when renaming the solution.
@@ -329,6 +331,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 (Elim::ConstMatch(branches0), Elim::ConstMatch(branches1)) => {
                     self.unify_branches(branches0, branches1)?;
                 }
+                (Elim::FormatRepr, Elim::FormatRepr) => {}
                 (_, _) => {
                     return Err(Error::Mismatch);
                 }
@@ -509,6 +512,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 },
                 Elim::RecordProj(label) => return Err(SpineError::RecordProj(*label)),
                 Elim::ConstMatch(_) => return Err(SpineError::ConstMatch),
+                Elim::FormatRepr => return Err(SpineError::FormatRepr),
             }
         }
 
@@ -522,7 +526,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
             Elim::FunApp(plicity, _) => {
                 Term::FunLit(term.span(), *plicity, None, self.scope.to_scope(term))
             }
-            Elim::RecordProj(_) | Elim::ConstMatch(_) => {
+            Elim::RecordProj(_) | Elim::ConstMatch(_) | Elim::FormatRepr => {
                 unreachable!("should have been caught by `init_renaming`")
             }
         })
@@ -598,6 +602,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                                     .map(|(name, expr)| (name, self.scope.to_scope(expr) as &_)),
                             )
                         }
+                        Elim::FormatRepr => Term::FormatRepr(span, self.scope.to_scope(head_expr)),
                     })
                 })
             }

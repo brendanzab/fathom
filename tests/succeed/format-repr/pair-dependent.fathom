@@ -7,7 +7,7 @@ let pair = {
     data <- repeat_len32 len u32be,
 };
 
-let test_pair : Repr pair -> { len : U32, data : U32 }
+let test_pair : pair.Repr -> { len : U32, data : U32 }
     = fun p => p;
 
 pair

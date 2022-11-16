@@ -1,6 +1,6 @@
 let format = { sfnt_version <- { version <- u32be | (u32_eq version 0xffff) } };
 
-let _ : Repr format -> { sfnt_version : Repr u32be } =
+let _ : format.Repr -> { sfnt_version : u32be.Repr } =
     fun x => x;
 
 {}

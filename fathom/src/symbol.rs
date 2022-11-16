@@ -6,15 +6,19 @@ use once_cell::sync::Lazy;
 
 struct StringInterner {
     strings: lasso::ThreadedRodeo,
+    repr_label: Symbol,
     tuple_labels: Vec<Symbol>,
     alphabetic_names: Vec<Symbol>,
 }
 
 static INTERNER: Lazy<RwLock<StringInterner>> = Lazy::new(|| {
+    let strings = lasso::ThreadedRodeo::new();
     RwLock::new(StringInterner {
-        strings: lasso::ThreadedRodeo::new(),
+        repr_label: Symbol(strings.get_or_intern_static("Repr")),
         tuple_labels: Vec::new(),
         alphabetic_names: Vec::new(),
+
+        strings,
     })
 });
 
@@ -25,6 +29,11 @@ impl StringInterner {
         fill_vec(&mut self.alphabetic_names, max_index, |index| {
             Symbol(self.strings.get_or_intern(alphabetic_name(index)))
         })
+    }
+
+    /// Get the name of the `Repr` field label
+    pub fn get_repr_label(&self) -> Symbol {
+        self.repr_label
     }
 
     /// Retrieve an alphabetic name based on a numeric count. This is useful for
@@ -126,6 +135,11 @@ impl Symbol {
         // safe to truncate the lifetime to the shorter lifetime of `'a`.
         // See also: https://github.com/rust-lang/rust/blob/e4dd9edb76a34ecbca539967f9662b8c0cc9c7fb/compiler/rustc_span/src/symbol.rs#L1845
         unsafe { std::mem::transmute::<&str, &'a str>(symbol) }
+    }
+
+    /// Get the name of the `Repr` field label
+    pub fn get_repr_label() -> Symbol {
+        INTERNER.read().unwrap().get_repr_label()
     }
 
     pub fn get_alphabetic_name(index: usize) -> Symbol {

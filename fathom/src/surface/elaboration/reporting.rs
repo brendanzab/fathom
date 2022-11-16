@@ -449,6 +449,9 @@ impl Message {
                         SpineError::ConstMatch => Diagnostic::error()
                             .with_message("constant match found in problem spine")
                             .with_labels(vec![primary_label(range)]),
+                        SpineError::FormatRepr => Diagnostic::error()
+                            .with_message("a format representation was accessed in problem spine")
+                            .with_labels(vec![primary_label(range)]),
                     },
                     Error::Rename(error) => match error {
                         RenameError::EscapingLocalVar(_var) => Diagnostic::error()

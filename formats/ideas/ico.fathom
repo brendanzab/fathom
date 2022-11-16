@@ -7,7 +7,7 @@
 //! - [Wikipedia](https://en.wikipedia.org/wiki/ICO_(file_format))
 //! - [Wikidata](https://www.wikidata.org/wiki/Q729366)
 
-def reserved (f : Format) (reserved : Repr f) : Format =
+def reserved (f : Format) (reserved : f.Repr) : Format =
     let data <- f;
     return data;
 

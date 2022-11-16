@@ -160,7 +160,6 @@ impl<'arena> Env<'arena> {
                 ),
             ),
         );
-        env.define_prim_fun(FormatRepr, [&FORMAT_TYPE], &UNIVERSE);
 
         // fun (@A : Type) -> Void -> A
         env.define_prim(
@@ -611,17 +610,17 @@ pub fn repr(prim: Prim) -> Step {
         Prim::FormatF32Le => step!(_, [] => Spanned::empty(Arc::new(Value::prim(Prim::F32Type, [])))),
         Prim::FormatF64Be => step!(_, [] => Spanned::empty(Arc::new(Value::prim(Prim::F64Type, [])))),
         Prim::FormatF64Le => step!(_, [] => Spanned::empty(Arc::new(Value::prim(Prim::F64Type, [])))),
-        Prim::FormatRepeatLen8 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array8Type, [len.clone(), env.format_repr(elem)])))),
-        Prim::FormatRepeatLen16 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array16Type, [len.clone(), env.format_repr(elem)])))),
-        Prim::FormatRepeatLen32 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array32Type, [len.clone(), env.format_repr(elem)])))),
-        Prim::FormatRepeatLen64 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array64Type, [len.clone(), env.format_repr(elem)])))),
-        Prim::FormatLimit8 => step!(env, [_, elem] => env.format_repr(elem)),
-        Prim::FormatLimit16 => step!(env, [_, elem] => env.format_repr(elem)),
-        Prim::FormatLimit32 => step!(env, [_, elem] => env.format_repr(elem)),
-        Prim::FormatLimit64 => step!(env, [_, elem] => env.format_repr(elem)),
-        Prim::FormatRepeatUntilEnd => step!(env, [elem] => Spanned::empty(Arc::new(Value::prim(Prim::ArrayType, [env.format_repr(elem)])))),
+        Prim::FormatRepeatLen8 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array8Type, [len.clone(), env.format_repr(elem.clone())])))),
+        Prim::FormatRepeatLen16 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array16Type, [len.clone(), env.format_repr(elem.clone())])))),
+        Prim::FormatRepeatLen32 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array32Type, [len.clone(), env.format_repr(elem.clone())])))),
+        Prim::FormatRepeatLen64 => step!(env, [len, elem] => Spanned::empty(Arc::new(Value::prim(Prim::Array64Type, [len.clone(), env.format_repr(elem.clone())])))),
+        Prim::FormatLimit8 => step!(env, [_, elem] => env.format_repr(elem.clone())),
+        Prim::FormatLimit16 => step!(env, [_, elem] => env.format_repr(elem.clone())),
+        Prim::FormatLimit32 => step!(env, [_, elem] => env.format_repr(elem.clone())),
+        Prim::FormatLimit64 => step!(env, [_, elem] => env.format_repr(elem.clone())),
+        Prim::FormatRepeatUntilEnd => step!(env, [elem] => Spanned::empty(Arc::new(Value::prim(Prim::ArrayType, [env.format_repr(elem.clone())])))),
         Prim::FormatLink => step!(_, [_, elem] => Spanned::empty(Arc::new(Value::prim(Prim::RefType, [elem.clone()])))),
-        Prim::FormatDeref => step!(env, [elem, _] => env.format_repr(elem)),
+        Prim::FormatDeref => step!(env, [elem, _] => env.format_repr(elem.clone())),
         Prim::FormatStreamPos => step!(_, [] => Spanned::empty(Arc::new(Value::prim(Prim::PosType, [])))),
         Prim::FormatSucceed => step!(_, [elem, _] => elem.clone()),
         Prim::FormatFail => step!(_, [] => Spanned::empty(Arc::new(Value::prim(Prim::VoidType, [])))),
@@ -640,8 +639,6 @@ pub fn step(prim: Prim) -> Step {
     match prim {
         #[allow(unreachable_code)]
         Prim::Absurd => step!(_, [_, _] => panic!("Constructed an element of `Void`")),
-
-        Prim::FormatRepr => step!(env, [format] => env.format_repr(format)),
 
         Prim::BoolEq => const_step!([x: Bool, y: Bool] => Const::Bool(x == y)),
         Prim::BoolNeq => const_step!([x: Bool, y: Bool] => Const::Bool(x != y)),

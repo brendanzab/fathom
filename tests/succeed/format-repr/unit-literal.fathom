@@ -1,9 +1,9 @@
 let unit : Format = {};
 
-let test_unit : Repr unit -> {}
+let test_unit : unit.Repr -> {}
     = fun p => p;
 
-let test_unit : Repr unit -> {}
+let test_unit : unit.Repr -> {}
     = fun p => {};
 
 unit

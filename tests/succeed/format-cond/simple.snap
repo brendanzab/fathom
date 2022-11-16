@@ -2,7 +2,7 @@ stdout = '''
 let format : Format = {
     sfnt_version <- { version <- u32be | version == (0xffff : U32) },
 };
-let _ : Repr format -> { sfnt_version : Repr u32be } = fun x => x;
+let _ : format.Repr -> { sfnt_version : u32be.Repr } = fun x => x;
 () : ()
 '''
 stderr = ''

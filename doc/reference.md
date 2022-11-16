@@ -136,7 +136,7 @@ definition during evaluation.
 
 If no binding is found, names can refer to one of the built-in primitives:
 
-- `Format`, `Repr`
+- `Format`
 - `u8`, `u16be`, `u16le`, `u32be`, `u32le`, `u64be`, `u64le`
 - `s8`, `s16be`, `s16le`, `s32be`, `s32le`, `s64be`, `s64le`
 - `f32be`, `f32le`, `f64be`, `f64le`
@@ -239,7 +239,7 @@ Parentheses can be used to explicitly group terms.
 For example:
 
 ```fathom
-Array32 len (Repr point)
+Array32 (len + 1) point.Repr
 ```
 
 ## Universes
@@ -261,10 +261,10 @@ The type of formats is formed using the `Format` primitive:
 
 ### Format representations
 
-Every binary format has a unique host representation, which is accessed via the
-built-in `Repr` operator:
+Every binary format has a unique representation type, which can be accessed via
+the `Repr` field:
 
-- `Repr : Format -> Type`
+- `f.Repr : Type` when `f : Format`
 
 ### Format coercions
 
@@ -299,7 +299,7 @@ data-dependent formats. For example:
     len <- u32be,
     data <- repeat_len32 len { x <- u32be, y <- u32be },
     //                   ▲
-    //                   └─── type of `len` is `Repr u32be`
+    //                   └─── type of `len` is `u32be.Repr`
 }
 ```
 
@@ -350,7 +350,7 @@ record format will fail to parse. For example:
 {
     magic <- u32be where u32_eq magic "icns",
     //                   ▲      ▲
-    //                   │      └──── `magic` is bound as type `Repr u32be`
+    //                   │      └──── `magic` is bound as type `u32be.Repr`
     //                   │
     //                   └──── `u32_eq magic "icns"` must be of type `Bool`
 }
@@ -419,11 +419,11 @@ The [representation](#format-representations) of a record format is a [dependent
 record type](#records), with the `Repr` operation applied to each of the field's
 formats, preserving dependencies as required:
 
-| format                                   | `Repr` format                          |
+| format                                   | format`.Repr`                          |
 | ---------------------------------------- | -------------------------------------- |
 | `{}`                                     | `{}`                                   |
-| `{ ..., l <- format, ... }`              | `{ ..., l : Repr format, ... }`        |
-| `{ ..., l <- format where pred, ... }`   | `{ ..., l : Repr format, ... }`        |
+| `{ ..., l <- format, ... }`              | `{ ..., l : format.Repr, ... }`        |
+| `{ ..., l <- format where pred, ... }`   | `{ ..., l : format.Repr, ... }`        |
 | `{ ..., let l = a : A, ... }`            | `{ ..., l : A, ... }`                  |
 
 Computed fields are included as fields in the representation of record formats
@@ -431,7 +431,7 @@ because they might appear in the representation types of subsequent fields.
 
 Some some examples of record formats and their representations are:
 
-| format                                                | `Repr` format                          |
+| format                                                | format`.Repr`                          |
 | ----------------------------------------------------- | -------------------------------------- |
 | `{ x <- f32le, y <- f32le }`                          | `{ x : F32, y : F32 }`                 |
 | `{ len <- u16be, data <- repeat_len16 len s8 }`       | `{ len : U16, data : Array16 len S8 }` |
@@ -447,7 +447,7 @@ evaluates to `true`.
 ```fathom
 { x <- format | pred x }
 //              ▲    ▲
-//              │    └─── `x` is bound as type `Repr format` in the predicate
+//              │    └─── `x` is bound as type `format.Repr` in the predicate
 //              │
 //              └──── `pred x` must be of type `Bool`
 ```
@@ -467,9 +467,9 @@ This can be used to verify magic numbers or version expectations. For example:
 The [representation](#format-representations) of a conditional format is the
 same as the representation of the refined format. I.e.
 
-| format                    | `Repr` format        |
+| format                    | format`.Repr`        |
 | ------------------------- | -------------------- |
-| `{ x <- format \| cond }` | `Repr format`        |
+| `{ x <- format \| cond }` | `format.Repr`        |
 
 ### Overlap formats
 
@@ -522,7 +522,7 @@ number types. Multi-byte numbers come in big endian and little endian flavours:
 Number formats lose their endianness as they are interpreted as their
 corresponding host representation:
 
-| format            | `Repr` format |
+| format            | format`.Repr` |
 | ----------------- | ------------- |
 | `u8`              | `U8`          |
 | `u16be`, `u16le`  | `U16`         |
@@ -574,9 +574,9 @@ Because the repeat format does not have a predefined length, it is
 [represented](#format-representations) as a dynamically sized
 [array type](#array-types):
 
-| format                    | `Repr` format         |
+| format                    | format`.Repr`         |
 | ------------------------- | --------------------- |
-| `repeat_until_end format` | `Array (Repr format)` |
+| `repeat_until_end format` | `Array format.Repr`   |
 
 ### Limit formats
 
@@ -591,12 +591,12 @@ and continue up to the given number of bytes.
 
 #### Representation of limit formats
 
-| format                    | `Repr` format       |
+| format                    | format`.Repr`       |
 | ------------------------- | ------------------- |
-| `limit8 length format`    | `Repr format`       |
-| `limit16 length format`   | `Repr format`       |
-| `limit32 length format`   | `Repr format`       |
-| `limit64 length format`   | `Repr format`       |
+| `limit8 length format`    | `format.Repr`       |
+| `limit16 length format`   | `format.Repr`       |
+| `limit32 length format`   | `format.Repr`       |
+| `limit64 length format`   | `format.Repr`       |
 
 ### Stream position formats
 
@@ -607,7 +607,7 @@ parsing:
 
 #### Representation of stream position formats
 
-| format       | `Repr` format |
+| format       | format`.Repr` |
 | ------------ | ------------- |
 | `stream_pos` | `Pos`         |
 
@@ -624,7 +624,7 @@ to expect at that position:
 Links formats are [represented](#format-representations) as typed
 [references](#references) to other parts of the binary stream.
 
-| format            | `Repr` format |
+| format            | format`.Repr` |
 | ----------------- | ------------- |
 | `link pos format` | `Ref format`  |
 
@@ -640,9 +640,9 @@ included in resulting parsed output.
 Dereferences are [represented](#format-representations) after parsing using the
 representation of the referenced format.
 
-| format              | `Repr` format |
+| format              | format`.Repr` |
 | ------------------- | ------------- |
-| `deref @format ref` | `Repr format` |
+| `deref @format ref` | `format.Repr` |
 
 ### Succeed format
 
@@ -653,7 +653,7 @@ embedded in the resulting parsed output.
 
 #### Representation of succeed formats
 
-| format         | `Repr` format |
+| format         | format`.Repr` |
 | -------------- | ------------- |
 | `succeed @A a` | `A`           |
 
@@ -668,7 +668,7 @@ parsing.
 
 The fail format should never produce a term, so is represented with [void](#void).
 
-| format | `Repr` format |
+| format | format`.Repr` |
 | ------ | ------------- |
 | `fail` | `Void`        |
 
@@ -682,7 +682,7 @@ parse failure.
 
 #### Representation of unwrap formats
 
-| format               | `Repr` format |
+| format               | format`.Repr` |
 | -------------------- | ------------- |
 | `unwrap @A option_a` | `A`           |
 

@@ -103,6 +103,8 @@ pub enum Elim<'arena> {
     RecordProj(Symbol),
     /// Match on a constant.
     ConstMatch(Branches<'arena, Const>),
+    /// Compute the representation type of a format description.
+    FormatRepr,
 }
 
 /// A closure is a term that can later be instantiated with a value.
@@ -351,6 +353,10 @@ impl<'arena, 'env> EvalEnv<'arena, 'env> {
                 Spanned::new(*span, Arc::new(Value::ArrayLit(exprs)))
             }
 
+            Term::FormatRepr(_, format) => {
+                let format = self.eval(format);
+                self.elim_env.format_repr(format)
+            }
             Term::FormatRecord(span, labels, formats) => {
                 let formats = Telescope::new(self.local_exprs.clone(), formats);
                 Spanned::new(*span, Arc::new(Value::FormatRecord(labels, formats)))
@@ -479,7 +485,7 @@ impl<'arena, 'env> ElimEnv<'arena, 'env> {
         let (term, terms) = telescope.terms.split_first()?;
         let mut env = self.eval_env(&mut telescope.local_exprs);
         let value = match telescope.apply_repr {
-            true => self.format_repr(&env.eval(term)),
+            true => self.format_repr(env.eval(term)),
             false => env.eval(term),
         };
 
@@ -577,9 +583,9 @@ impl<'arena, 'env> ElimEnv<'arena, 'env> {
                     }
                 }
                 // Otherwise call default with `head_expr`
-                let mut local_exprs = branches.local_exprs.clone();
                 match branches.default_branch {
                     Some((_, default_expr)) => {
+                        let mut local_exprs = branches.local_exprs.clone();
                         local_exprs.push(head_expr);
                         self.eval_env(&mut local_exprs).eval(default_expr)
                     }
@@ -595,31 +601,38 @@ impl<'arena, 'env> ElimEnv<'arena, 'env> {
         }
     }
 
+    /// Find the representation type of a format description.
+    pub fn format_repr(&self, mut head_expr: ArcValue<'arena>) -> ArcValue<'arena> {
+        let span = head_expr.span();
+        match Arc::make_mut(&mut head_expr) {
+            Value::FormatRecord(labels, formats) | Value::FormatOverlap(labels, formats) => {
+                let types = formats.clone().apply_repr();
+                Spanned::new(span, Arc::new(Value::RecordType(labels, types)))
+            }
+            Value::FormatCond(_, format, _) => self.format_repr(format.clone()),
+            Value::Stuck(head, spine) => {
+                // Handle primitives that may have representation types
+                if let Head::Prim(prim) = head {
+                    if let Some(r#type) = prim::repr(*prim)(self, spine) {
+                        return r#type;
+                    }
+                }
+                // The computation is stuck, preventing further reduction
+                spine.push(Elim::FormatRepr);
+                head_expr
+            }
+            _ => panic_any(Error::InvalidFormatRepr),
+        }
+    }
+
     /// Apply an expression to an elimination spine.
     fn apply_spine(&self, head_expr: ArcValue<'arena>, spine: &[Elim<'arena>]) -> ArcValue<'arena> {
         spine.iter().fold(head_expr, |head_expr, elim| match elim {
             Elim::FunApp(plicity, arg_expr) => self.fun_app(*plicity, head_expr, arg_expr.clone()),
             Elim::RecordProj(label) => self.record_proj(head_expr, *label),
             Elim::ConstMatch(split) => self.const_match(head_expr, split.clone()),
+            Elim::FormatRepr => self.format_repr(head_expr),
         })
-    }
-
-    /// Find the representation type of a format description.
-    pub fn format_repr(&self, format: &ArcValue<'arena>) -> ArcValue<'arena> {
-        let value = match format.as_ref() {
-            Value::FormatRecord(labels, formats) | Value::FormatOverlap(labels, formats) => {
-                Value::RecordType(labels, formats.clone().apply_repr())
-            }
-            Value::FormatCond(_, format, _) => return self.format_repr(format),
-            Value::Stuck(Head::Prim(prim), spine) => match prim::repr(*prim)(self, spine) {
-                Some(r#type) => return r#type,
-                None => Value::prim(Prim::FormatRepr, [format.clone()]),
-            },
-            Value::Stuck(_, _) => Value::prim(Prim::FormatRepr, [format.clone()]),
-            _ => panic_any(Error::InvalidFormatRepr),
-        };
-
-        Spanned::new(format.span(), Arc::new(value))
     }
 }
 
@@ -707,6 +720,7 @@ impl<'in_arena, 'env> QuoteEnv<'in_arena, 'env> {
                                 .map(|(name, expr)| (name, self.quote_closure(scope, &expr))),
                         )
                     }
+                    Elim::FormatRepr => Term::FormatRepr(span, scope.to_scope(head_expr)),
                 },
             ),
 
@@ -854,12 +868,14 @@ impl<'arena, 'env> EvalEnv<'arena, 'env> {
 
             // These terms might be elimination spines with metavariables at
             // their head that need to be unfolded.
-            Term::MetaVar(..) | Term::FunApp(..) | Term::RecordProj(..) | Term::ConstMatch(..) => {
-                match self.unfold_meta_var_spines(scope, term) {
-                    TermOrValue::Term(term) => term,
-                    TermOrValue::Value(value) => self.quote_env().quote(scope, &value),
-                }
-            }
+            Term::MetaVar(..)
+            | Term::FunApp(..)
+            | Term::RecordProj(..)
+            | Term::ConstMatch(..)
+            | Term::FormatRepr(..) => match self.unfold_meta_var_spines(scope, term) {
+                TermOrValue::Term(term) => term,
+                TermOrValue::Value(value) => self.quote_env().quote(scope, &value),
+            },
 
             Term::InsertedMeta(span, var, infos) => match self.elim_env.get_meta_expr(*var) {
                 Some(value) => {
@@ -1011,6 +1027,16 @@ impl<'arena, 'env> EvalEnv<'arena, 'env> {
                         let branches =
                             Branches::new(self.local_exprs.clone(), branches, *default_branch);
                         TermOrValue::Value(self.elim_env.const_match(head_expr, branches))
+                    }
+                }
+            }
+            Term::FormatRepr(span, head_expr) => {
+                match self.unfold_meta_var_spines(scope, head_expr) {
+                    TermOrValue::Term(head_expr) => {
+                        TermOrValue::Term(Term::FormatRepr(*span, scope.to_scope(head_expr)))
+                    }
+                    TermOrValue::Value(head_expr) => {
+                        TermOrValue::Value(self.elim_env.format_repr(head_expr))
                     }
                 }
             }
@@ -1176,6 +1202,7 @@ impl<'arena, 'env> ConversionEnv<'arena, 'env> {
                     (Elim::ConstMatch(branches0), Elim::ConstMatch(branches1)) => {
                         self.is_equal_branches(branches0, branches1)
                     }
+                    (Elim::FormatRepr, Elim::FormatRepr) => true,
                     (_, _) => false,
                 }
             })
@@ -1342,6 +1369,7 @@ mod tests {
             Elim::FunApp(..) => {}
             Elim::RecordProj(..) => {}
             Elim::ConstMatch(..) => {}
+            Elim::FormatRepr => {}
         }
     }
 

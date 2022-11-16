@@ -1,7 +1,7 @@
 stdout = '''
 let num : Format = s32be;
-let x : Repr num = 3;
-let Point : Type = { x : Repr num, y : Repr num };
+let x : num.Repr = 3;
+let Point : Type = { x : num.Repr, y : num.Repr };
 x : S32
 '''
 stderr = ''

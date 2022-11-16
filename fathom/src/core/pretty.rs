@@ -261,6 +261,9 @@ impl<'arena> Context {
                 RcDoc::text("]"),
             ),
             Term::ConstLit(_, const_) => RcDoc::text(format!("{const_:?}")),
+            Term::FormatRepr(_, format) => {
+                RcDoc::concat([self.term_prec(Prec::Atomic, format), RcDoc::text(".Repr")])
+            }
             Term::FormatRecord(_, labels, formats) => self.sequence(
                 RcDoc::text("{"),
                 labels

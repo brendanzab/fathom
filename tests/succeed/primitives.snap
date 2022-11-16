@@ -63,7 +63,6 @@ let _ : Format = stream_pos;
 let _ : fun (@A : Type) -> A -> Format = succeed;
 let _ : Format = fail;
 let _ : fun (@A : Type) -> Option A -> Format = unwrap;
-let _ : Format -> Type = Repr;
 let _ : fun (@A : Type) -> Void -> A = absurd;
 let _ : Bool -> Bool -> Bool = bool_eq;
 let _ : Bool -> Bool -> Bool = bool_neq;

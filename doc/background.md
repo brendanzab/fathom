@@ -38,12 +38,12 @@ Fathom:
 ```text
                     A : Format
 ─────────────     ──────────────
- Format type       Repr(A) type
+ Format type        A.Repr type
 
 
- A : Format    B : Repr(A) → Format        A : Format         B : Repr(A) → Format
-────────────────────────────────────    ──────────────────────────────────────────────
-       pair(A, B) : Format               Repr(pair(A, B)) ≡ Σ x : Repr(A). Repr(B(x))
+ A : Format    B : A.Repr → Format        A : Format         B : A.Repr → Format
+───────────────────────────────────    ──────────────────────────────────────────────
+       pair(A, B) : Format              pair(A, B).Repr ≡ Σ x : A.Repr. B(x).Repr
 ```
 
 [tarski-universes]: https://ncatlab.org/homotopytypetheory/show/universe#Tarski

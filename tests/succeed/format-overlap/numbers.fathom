@@ -3,7 +3,7 @@ let number = overlap {
     s <- s32be,
 };
 
-let _ : Repr number -> { u : U32, s : S32 } =
+let _ : number.Repr -> { u : U32, s : S32 } =
     fun n => n;
 
 {}

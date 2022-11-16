@@ -259,6 +259,7 @@ pub struct Context<'arena> {
     universe: ArcValue<'static>,
     format_type: ArcValue<'static>,
     bool_type: ArcValue<'static>,
+    repr_label: Symbol,
 
     /// Primitive environment.
     prim_env: prim::Env<'arena>,
@@ -296,6 +297,7 @@ impl<'arena> Context<'arena> {
             universe: Spanned::empty(Arc::new(Value::Universe)),
             format_type: Spanned::empty(Arc::new(Value::prim(Prim::FormatType, []))),
             bool_type: Spanned::empty(Arc::new(Value::prim(Prim::BoolType, []))),
+            repr_label: Symbol::get_repr_label(),
 
             prim_env: prim::Env::default(scope),
             item_env,
@@ -603,13 +605,7 @@ impl<'arena> Context<'arena> {
             (Value::Stuck(Head::Prim(Prim::FormatType), elims), Value::Universe)
                 if elims.is_empty() =>
             {
-                core::Term::FunApp(
-                    span,
-                    Plicity::Explicit,
-                    self.scope
-                        .to_scope(core::Term::Prim(span, core::Prim::FormatRepr)),
-                    self.scope.to_scope(expr),
-                )
+                core::Term::FormatRepr(span, self.scope.to_scope(expr))
             }
 
             // Otherwise, unify the types
@@ -1103,7 +1099,7 @@ impl<'arena> Context<'arena> {
                     Iterator::zip(labels.iter(), elem_exprs.iter()).map(|(label, elem_expr)| {
                         let format = self.check(elem_expr, &format_type);
                         let format_value = self.eval_env().eval(&format);
-                        let r#type = self.elim_env().format_repr(&format_value);
+                        let r#type = self.elim_env().format_repr(format_value);
                         self.local_env.push_param(Some(*label), r#type);
                         format
                     }),
@@ -1669,6 +1665,17 @@ impl<'arena> Context<'arena> {
                             // Couldn't find the field in the record type.
                             // Fallthrough with an error.
                         }
+                        (_, Value::Stuck(Head::Prim(Prim::FormatType), spine))
+                            if spine.is_empty() && *proj_label == self.repr_label =>
+                        {
+                            let head_range = ByteRange::merge(head_range, *label_range);
+                            head_expr = core::Term::FormatRepr(
+                                self.file_range(head_range).into(),
+                                self.scope.to_scope(head_expr),
+                            );
+                            head_type = self.universe.clone();
+                            continue 'labels;
+                        }
                         // There's been an error when elaborating the head of
                         // the projection, so avoid trying to elaborate any
                         // further to prevent cascading type errors.
@@ -1723,7 +1730,7 @@ impl<'arena> Context<'arena> {
                 let format_type = self.format_type.clone();
                 let format = self.check(format, &format_type);
                 let format_value = self.eval_env().eval(&format);
-                let repr_type = self.elim_env().format_repr(&format_value);
+                let repr_type = self.elim_env().format_repr(format_value);
 
                 self.local_env.push_param(Some(*name), repr_type);
                 let bool_type = self.bool_type.clone();
@@ -2158,7 +2165,7 @@ impl<'arena> Context<'arena> {
                     let label_range = self.file_range(*label_range);
                     let format = self.check(format, &format_type);
                     let format_value = self.eval_env().eval(&format);
-                    let r#type = self.elim_env().format_repr(&format_value);
+                    let r#type = self.elim_env().format_repr(format_value);
 
                     self.local_env.push_param(Some(*label), r#type);
 

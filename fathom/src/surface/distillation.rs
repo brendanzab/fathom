@@ -566,21 +566,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 // TODO: type annotations?
                 Term::RecordLiteral((), scope.to_scope_from_iter(expr_fields))
             }
-            (core::Term::RecordProj(_, mut head_expr, label), _) => {
-                let mut labels = vec![((), *label)];
-
-                while let core::Term::RecordProj(_, next_head_expr, label) = head_expr {
-                    head_expr = next_head_expr;
-                    labels.push(((), *label));
-                }
-
-                let head_expr = self.synth_prec(Prec::Atomic, head_expr);
-                Term::Proj(
-                    (),
-                    self.scope.to_scope(head_expr),
-                    self.scope.to_scope_from_iter(labels.into_iter().rev()),
-                )
-            }
+            (core::Term::RecordProj(..), _) => self.synth_proj(term),
             (core::Term::ArrayLit(_, elem_exprs), _) => {
                 let scope = self.scope;
                 let elem_exprs = elem_exprs
@@ -590,6 +576,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 // TODO: type annotations?
                 Term::ArrayLiteral((), scope.to_scope_from_iter(elem_exprs))
             }
+            (core::Term::FormatRepr(..), _) => self.synth_proj(term),
             (core::Term::FormatRecord(_, labels, formats), _) if is_tuple_type(labels, formats) => {
                 self.check_dependent_tuple(labels, formats)
             }
@@ -692,6 +679,31 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 Term::Match((), self.scope.to_scope(head_expr), branches.into())
             }
         }
+    }
+
+    fn synth_proj(&mut self, mut head_expr: &core::Term<'_>) -> Term<'arena, ()> {
+        let mut labels = Vec::new();
+
+        loop {
+            head_expr = match head_expr {
+                core::Term::RecordProj(_, head_expr, label) => {
+                    labels.push(((), *label));
+                    head_expr
+                }
+                core::Term::FormatRepr(_, head_expr) => {
+                    labels.push(((), Symbol::get_repr_label()));
+                    head_expr
+                }
+                _ => break,
+            };
+        }
+
+        let head_expr = self.synth_prec(Prec::Atomic, head_expr);
+        Term::Proj(
+            (),
+            self.scope.to_scope(head_expr),
+            self.scope.to_scope_from_iter(labels.into_iter().rev()),
+        )
     }
 
     /// Distill a core term into a surface term, in a 'checkable' context.

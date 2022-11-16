@@ -266,7 +266,7 @@ pub struct ParsedRef<'arena> {
     // Invariant: `format : Format`
     pub format: ArcValue<'arena>,
     /// The expression that was parsed for this reference
-    // Invariant: `expr : Repr format`
+    // Invariant: `expr : format.Repr`
     pub expr: ArcValue<'arena>,
 }
 

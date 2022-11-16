@@ -66,7 +66,6 @@ let _ = stream_pos : Format;
 let _ = succeed : fun (@A : Type) -> A -> Format;
 let _ = fail : Format;
 let _ = unwrap : fun (@A : Type) -> Option A -> Format;
-let _ = Repr : Format -> Type;
 
 let _ = absurd : fun (@A : Type) -> Void -> A;
 

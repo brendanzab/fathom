@@ -1,7 +1,7 @@
 stdout = '''
 let pair : Format = { fst <- u32be, snd <- u32be };
-let test_pair : Repr pair -> { fst : U32, snd : U32 } = fun p => p;
-let test_pair : Repr pair -> { fst : U32, snd : U32 } = fun p => {
+let test_pair : pair.Repr -> { fst : U32, snd : U32 } = fun p => p;
+let test_pair : pair.Repr -> { fst : U32, snd : U32 } = fun p => {
     fst = p.fst,
     snd = p.snd,
 };

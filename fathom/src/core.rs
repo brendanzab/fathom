@@ -182,6 +182,8 @@ pub enum Term<'arena> {
     /// Array literals.
     ArrayLit(Span, &'arena [Term<'arena>]),
 
+    /// Compute the representation type of a format description.
+    FormatRepr(Span, &'arena Term<'arena>),
     /// Record formats, consisting of a list of dependent formats.
     FormatRecord(Span, &'arena [Symbol], &'arena [Term<'arena>]),
     /// Conditional format, consisting of a format and predicate.
@@ -223,6 +225,7 @@ impl<'arena> Term<'arena> {
             | Term::RecordLit(span, _, _)
             | Term::RecordProj(span, _, _)
             | Term::ArrayLit(span, _)
+            | Term::FormatRepr(span, _)
             | Term::FormatRecord(span, _, _)
             | Term::FormatCond(span, _, _, _)
             | Term::FormatOverlap(span, _, _)
@@ -256,6 +259,7 @@ impl<'arena> Term<'arena> {
             Term::FunApp(.., head_expr, arg_expr) => {
                 head_expr.binds_local(var) || arg_expr.binds_local(var)
             }
+            Term::FormatRepr(_, format) => format.binds_local(var),
             Term::RecordType(_, _, terms)
             | Term::RecordLit(_, _, terms)
             | Term::FormatRecord(_, _, terms)
@@ -415,8 +419,6 @@ def_prims! {
     FormatFail => "fail",
     /// Unwrap an option, or fail to parse.
     FormatUnwrap => "unwrap",
-    /// Format representations.
-    FormatRepr => "Repr",
 
     /// Reported errors.
     ReportedError => "reported_error",
