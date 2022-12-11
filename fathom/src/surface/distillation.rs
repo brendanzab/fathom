@@ -163,7 +163,7 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
         Term::NumberLiteral((), number)
     }
 
-    fn check_boolean_pattern(&mut self, boolean: bool) -> Pattern<()> {
+    fn check_boolean_pattern(&mut self, boolean: bool) -> Pattern<'arena, ()> {
         let name = match boolean {
             true => self.interner.borrow_mut().get_or_intern("true"),
             false => self.interner.borrow_mut().get_or_intern("false"),
@@ -171,7 +171,7 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
         Pattern::Name((), name)
     }
 
-    fn check_number_pattern<T: std::fmt::Display>(&mut self, number: T) -> Pattern<()> {
+    fn check_number_pattern<T: std::fmt::Display>(&mut self, number: T) -> Pattern<'arena, ()> {
         let number = self.interner.borrow_mut().get_or_intern(number.to_string());
         Pattern::NumberLiteral((), number)
     }
@@ -180,14 +180,14 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
         &mut self,
         number: T,
         style: UIntStyle,
-    ) -> Pattern<()> {
+    ) -> Pattern<'arena, ()> {
         // TODO: Share with check_number_literal_styled
         let string = style.format(number);
         let number = self.interner.borrow_mut().get_or_intern(string);
         Pattern::NumberLiteral((), number)
     }
 
-    fn check_constant_pattern(&mut self, r#const: &Const) -> Pattern<()> {
+    fn check_constant_pattern(&mut self, r#const: &Const) -> Pattern<'arena, ()> {
         match r#const {
             Const::Bool(boolean) => self.check_boolean_pattern(*boolean),
             Const::U8(number, style) => self.check_number_pattern_styled(number, *style),
@@ -286,7 +286,6 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
 
                 let def_name = self.freshen_name(*def_name, body_expr);
                 let def_name = self.push_local(def_name);
-                let def_pattern = name_to_pattern(def_name);
                 let body_expr = self.check_prec(Prec::Let, body_expr);
                 self.pop_local();
 
@@ -294,7 +293,7 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
                     prec > Prec::Let,
                     Term::Let(
                         (),
-                        def_pattern,
+                        self.scope.to_scope(name_to_pattern(def_name)),
                         Some(self.scope.to_scope(def_type)),
                         self.scope.to_scope(def_expr),
                         self.scope.to_scope(body_expr),
@@ -380,11 +379,33 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
                 core::Const::Ref(number) => self.check_number_literal(number),
             },
             core::Term::ConstMatch(_span, head_expr, branches, default_branch) => {
-                if let Some((then_expr, else_expr)) = match_if_then_else(branches, *default_branch)
+                if let Some(((then_name, then_expr), (else_name, else_expr))) =
+                    match_if_then_else(branches, *default_branch)
                 {
                     let cond_expr = self.check_prec(Prec::Fun, head_expr);
-                    let then_expr = self.check_prec(Prec::Let, then_expr);
-                    let else_expr = self.check_prec(Prec::Let, else_expr);
+
+                    let then_expr = match then_name {
+                        None => self.check_prec(Prec::Let, then_expr),
+                        Some(name) => {
+                            let name = self.freshen_name(name, then_expr);
+                            self.push_local(name);
+                            let then_expr = self.check_prec(Prec::Let, then_expr);
+                            self.pop_local();
+                            then_expr
+                        }
+                    };
+
+                    let else_expr = match else_name {
+                        None => self.check_prec(Prec::Let, else_expr),
+                        Some(name) => {
+                            let name = self.freshen_name(name, else_expr);
+                            self.push_local(name);
+                            let else_expr = self.check_prec(Prec::Let, else_expr);
+                            self.pop_local();
+                            else_expr
+                        }
+                    };
+
                     return self.paren(
                         prec > Prec::Let,
                         Term::If(
@@ -450,11 +471,11 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
         match core_term {
             core::Term::ItemVar(_span, var) => match self.get_item_name(*var) {
                 Some(name) => Term::Name((), name),
-                None => todo!("misbound variable"), // TODO: error?
+                None => panic!("misbound item variable: {var:?}"),
             },
             core::Term::LocalVar(_span, var) => match self.get_local_name(*var) {
                 Some(name) => Term::Name((), name),
-                None => todo!("misbound variable"), // TODO: error?
+                None => panic!("Unbound local variable: {var:?}"),
             },
             core::Term::MetaVar(_span, var) => match self.get_hole_name(*var) {
                 Some(name) => Term::Hole((), name),
@@ -514,7 +535,7 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
                     prec > Prec::Let,
                     Term::Let(
                         (),
-                        name_to_pattern(def_name),
+                        self.scope.to_scope(name_to_pattern(def_name)),
                         Some(self.scope.to_scope(def_type)),
                         self.scope.to_scope(def_expr),
                         self.scope.to_scope(body_expr),
@@ -769,15 +790,41 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
                 }
             },
             core::Term::ConstMatch(_span, head_expr, branches, default_expr) => {
-                if let Some((then_expr, else_expr)) = match_if_then_else(branches, *default_expr) {
+                if let Some(((then_name, then_expr), (else_name, else_expr))) =
+                    match_if_then_else(branches, *default_expr)
+                {
                     let cond_expr = self.check_prec(Prec::Fun, head_expr);
-                    let then_expr = self.synth_prec(Prec::Let, then_expr);
-                    let else_expr = self.synth_prec(Prec::Let, else_expr);
-                    return Term::If(
-                        (),
-                        self.scope.to_scope(cond_expr),
-                        self.scope.to_scope(then_expr),
-                        self.scope.to_scope(else_expr),
+
+                    let then_expr = match then_name {
+                        None => self.synth_prec(Prec::Let, then_expr),
+                        Some(name) => {
+                            let name = self.freshen_name(name, then_expr);
+                            self.push_local(name);
+                            let then_expr = self.synth_prec(Prec::Let, then_expr);
+                            self.pop_local();
+                            then_expr
+                        }
+                    };
+
+                    let else_expr = match else_name {
+                        None => self.synth_prec(Prec::Let, else_expr),
+                        Some(name) => {
+                            let name = self.freshen_name(name, else_expr);
+                            self.push_local(name);
+                            let else_expr = self.synth_prec(Prec::Let, else_expr);
+                            self.pop_local();
+                            else_expr
+                        }
+                    };
+
+                    return self.paren(
+                        prec > Prec::Let,
+                        Term::If(
+                            (),
+                            self.scope.to_scope(cond_expr),
+                            self.scope.to_scope(then_expr),
+                            self.scope.to_scope(else_expr),
+                        ),
                     );
                 }
 
@@ -883,22 +930,30 @@ impl<'interner, 'arena, 'env> Context<'interner, 'arena, 'env> {
     }
 }
 
-fn name_to_pattern(name: Option<StringId>) -> Pattern<()> {
+fn name_to_pattern<'arena>(name: Option<StringId>) -> Pattern<'arena, ()> {
     match name {
         Some(name) => Pattern::Name((), name),
         None => Pattern::Placeholder(()),
     }
 }
-
+#[allow(clippy::type_complexity)]
 fn match_if_then_else<'arena>(
     branches: &'arena [(Const, core::Term<'arena>)],
     default_branch: Option<(Option<StringId>, &'arena core::Term<'arena>)>,
-) -> Option<(&'arena core::Term<'arena>, &'arena core::Term<'arena>)> {
+) -> Option<(
+    (Option<Option<StringId>>, &'arena core::Term<'arena>),
+    (Option<Option<StringId>>, &'arena core::Term<'arena>),
+)> {
     match (branches, default_branch) {
-        ([(Const::Bool(false), else_expr), (Const::Bool(true), then_expr)], None)
-        // TODO: Normalize boolean branches when elaborating patterns
-        | ([(Const::Bool(true), then_expr)], Some((_, else_expr)))
-        | ([(Const::Bool(false), else_expr)], Some((_, then_expr))) => Some((then_expr, else_expr)),
+        ([(Const::Bool(false), else_expr), (Const::Bool(true), then_expr)], None) => {
+            Some(((None, then_expr), (None, else_expr)))
+        }
+        ([(Const::Bool(true), then_expr)], Some((name, else_expr))) => {
+            Some(((None, then_expr), (Some(name), else_expr)))
+        }
+        ([(Const::Bool(false), else_expr)], Some((name, then_expr))) => {
+            Some(((Some(name), then_expr), (None, else_expr)))
+        }
         _ => None,
     }
 }
