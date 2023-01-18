@@ -260,7 +260,8 @@ impl<'arena> Context {
                 RcDoc::text(","),
                 RcDoc::text("]"),
             ),
-            Term::ConstLit(_, const_) => RcDoc::text(format!("{const_:?}")),
+            Term::ConstLit(_, r#const) => RcDoc::text(format!("{const:?}")),
+            Term::FormatType(_) => RcDoc::text("Format"),
             Term::FormatRepr(_, format) => {
                 RcDoc::concat([self.term_prec(Prec::Atomic, format), RcDoc::text(".Repr")])
             }

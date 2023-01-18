@@ -295,7 +295,7 @@ impl<'arena> Context<'arena> {
             scope,
 
             universe: Spanned::empty(Arc::new(Value::Universe)),
-            format_type: Spanned::empty(Arc::new(Value::prim(Prim::FormatType, []))),
+            format_type: Spanned::empty(Arc::new(Value::FormatType)),
             bool_type: Spanned::empty(Arc::new(Value::prim(Prim::BoolType, []))),
             repr_label: Symbol::get_repr_label(),
 
@@ -602,9 +602,7 @@ impl<'arena> Context<'arena> {
         match (from.as_ref(), to.as_ref()) {
             // Coerce format descriptions to their representation types by
             // applying `Repr`.
-            (Value::Stuck(Head::Prim(Prim::FormatType), elims), Value::Universe)
-                if elims.is_empty() =>
-            {
+            (Value::FormatType, Value::Universe) => {
                 core::Term::FormatRepr(span, self.scope.to_scope(expr))
             }
 
@@ -1086,9 +1084,7 @@ impl<'arena> Context<'arena> {
 
                 core::Term::RecordType(file_range.into(), labels, types)
             }
-            (Term::Tuple(_, elem_exprs), Value::Stuck(Head::Prim(Prim::FormatType), args))
-                if args.is_empty() =>
-            {
+            (Term::Tuple(_, elem_exprs), Value::FormatType) => {
                 self.local_env.reserve(elem_exprs.len());
                 let labels = Symbol::get_tuple_labels(0..elem_exprs.len());
                 let labels = self.scope.to_scope_from_iter(labels.iter().copied());
@@ -1665,9 +1661,7 @@ impl<'arena> Context<'arena> {
                             // Couldn't find the field in the record type.
                             // Fallthrough with an error.
                         }
-                        (_, Value::Stuck(Head::Prim(Prim::FormatType), spine))
-                            if spine.is_empty() && *proj_label == self.repr_label =>
-                        {
+                        (_, Value::FormatType) if *proj_label == self.repr_label => {
                             let head_range = ByteRange::merge(head_range, *label_range);
                             head_expr = core::Term::FormatRepr(
                                 self.file_range(head_range).into(),

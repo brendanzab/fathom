@@ -41,6 +41,8 @@ pub enum Value<'arena> {
     /// Array literals.
     ArrayLit(Vec<ArcValue<'arena>>),
 
+    /// The type of binary format descriptions.
+    FormatType,
     /// Record formats, consisting of a list of dependent formats.
     FormatRecord(&'arena [Symbol], Telescope<'arena>),
     /// Conditional format, consisting of a format and predicate.
@@ -353,6 +355,7 @@ impl<'arena, 'env> EvalEnv<'arena, 'env> {
                 Spanned::new(*span, Arc::new(Value::ArrayLit(exprs)))
             }
 
+            Term::FormatType(span) => Spanned::new(*span, Arc::new(Value::FormatType)),
             Term::FormatRepr(_, format) => {
                 let format = self.eval(format);
                 self.elim_env.format_repr(format)
@@ -371,7 +374,8 @@ impl<'arena, 'env> EvalEnv<'arena, 'env> {
                 Spanned::new(*span, Arc::new(Value::FormatOverlap(labels, formats)))
             }
 
-            Term::Prim(span, prim) => Spanned::new(*span, Arc::new(Value::prim(*prim, []))),
+            Term::Prim(span, prim) => prim::step(*prim)(&self.elim_env, &[])
+                .unwrap_or_else(|| Spanned::new(*span, Arc::new(Value::prim(*prim, [])))),
 
             Term::ConstLit(span, r#const) => {
                 Spanned::new(*span, Arc::new(Value::ConstLit(*r#const)))
@@ -755,6 +759,7 @@ impl<'in_arena, 'env> QuoteEnv<'in_arena, 'env> {
                 scope.to_scope_from_iter(exprs.iter().map(|expr| self.quote(scope, expr))),
             ),
 
+            Value::FormatType => Term::FormatType(span),
             Value::FormatRecord(labels, formats) => Term::FormatRecord(
                 span,
                 scope.to_scope_from_iter(labels.iter().copied()),
@@ -932,6 +937,7 @@ impl<'arena, 'env> EvalEnv<'arena, 'env> {
                 scope.to_scope_from_iter(exprs.iter().map(|expr| self.unfold_metas(scope, expr))),
             ),
 
+            Term::FormatType(span) => Term::FormatType(*span),
             Term::FormatRecord(span, labels, formats) => Term::FormatRecord(
                 *span,
                 scope.to_scope_from_iter(labels.iter().copied()),
@@ -1170,6 +1176,7 @@ impl<'arena, 'env> ConversionEnv<'arena, 'env> {
                     .all(|(expr0, expr1)| self.is_equal(expr0, expr1))
             }
 
+            (Value::FormatType, Value::FormatType) => true,
             (Value::FormatRecord(labels0, formats0), Value::FormatRecord(labels1, formats1))
             | (Value::FormatOverlap(labels0, formats0), Value::FormatOverlap(labels1, formats1)) => {
                 labels0 == labels1 && self.is_equal_telescopes(formats0, formats1)
@@ -1348,6 +1355,7 @@ mod tests {
             Value::RecordType(..) => {}
             Value::RecordLit(..) => {}
             Value::ArrayLit(..) => {}
+            Value::FormatType => {}
             Value::FormatRecord(..) => {}
             Value::FormatCond(..) => {}
             Value::FormatOverlap(..) => {}

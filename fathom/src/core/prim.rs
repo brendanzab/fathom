@@ -36,7 +36,7 @@ impl<'arena> Env<'arena> {
         const VAR3: Term<'_> = Term::LocalVar(Span::Empty, env::Index::last().prev().prev().prev());
         const UNIVERSE: Term<'_> = Term::Universe(Span::Empty);
         const VOID_TYPE: Term<'_> = Term::Prim(Span::Empty, VoidType);
-        const FORMAT_TYPE: Term<'_> = Term::Prim(Span::Empty, FormatType);
+        const FORMAT_TYPE: Term<'_> = Term::FormatType(Span::Empty);
         const BOOL_TYPE: Term<'_> = Term::Prim(Span::Empty, BoolType);
         const U8_TYPE: Term<'_> = Term::Prim(Span::Empty, U8Type);
         const U16_TYPE: Term<'_> = Term::Prim(Span::Empty, U16Type);
@@ -637,6 +637,8 @@ pub fn step(prim: Prim) -> Step {
     use std::convert::TryFrom;
 
     match prim {
+        Prim::FormatType => step!(_, [] => Spanned::empty(Arc::new(Value::FormatType))),
+
         #[allow(unreachable_code)]
         Prim::Absurd => step!(_, [_, _] => panic!("Constructed an element of `Void`")),
 

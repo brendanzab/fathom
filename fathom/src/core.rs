@@ -182,6 +182,8 @@ pub enum Term<'arena> {
     /// Array literals.
     ArrayLit(Span, &'arena [Term<'arena>]),
 
+    /// The type of binary format descriptions.
+    FormatType(Span),
     /// Compute the representation type of a format description.
     FormatRepr(Span, &'arena Term<'arena>),
     /// Record formats, consisting of a list of dependent formats.
@@ -225,6 +227,7 @@ impl<'arena> Term<'arena> {
             | Term::RecordLit(span, _, _)
             | Term::RecordProj(span, _, _)
             | Term::ArrayLit(span, _)
+            | Term::FormatType(span)
             | Term::FormatRepr(span, _)
             | Term::FormatRecord(span, _, _)
             | Term::FormatCond(span, _, _, _)
@@ -243,6 +246,7 @@ impl<'arena> Term<'arena> {
             | Term::MetaVar(_, _)
             | Term::InsertedMeta(_, _, _)
             | Term::Universe(_)
+            | Term::FormatType(_)
             | Term::Prim(_, _)
             | Term::ConstLit(_, _) => false,
 

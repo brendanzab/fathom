@@ -280,6 +280,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 Ok(())
             }
 
+            (Value::FormatType, Value::FormatType) => Ok(()),
             (Value::FormatRecord(labels0, formats0), Value::FormatRecord(labels1, formats1)) => {
                 if labels0 != labels1 {
                     return Err(Error::Mismatch);
@@ -655,6 +656,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 Ok(Term::ArrayLit(span, new_elem_exprs.into()))
             }
 
+            Value::FormatType => Ok(Term::FormatType(span)),
             Value::FormatRecord(labels, formats) => {
                 let formats = self.rename_telescope(meta_var, formats)?;
 

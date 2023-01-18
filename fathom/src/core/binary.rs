@@ -392,6 +392,7 @@ impl<'arena, 'data> Context<'arena, 'data> {
             | Value::RecordType(_, _)
             | Value::RecordLit(_, _)
             | Value::ArrayLit(_)
+            | Value::FormatType
             | Value::ConstLit(_) => Err(ReadError::InvalidFormat(format.span())),
         }
     }

@@ -576,6 +576,7 @@ impl<'arena, 'env> Context<'arena, 'env> {
                 // TODO: type annotations?
                 Term::ArrayLiteral((), scope.to_scope_from_iter(elem_exprs))
             }
+            (core::Term::FormatType(_), _) => Term::Name((), Symbol::intern_static("Format")),
             (core::Term::FormatRepr(..), _) => self.synth_proj(term),
             (core::Term::FormatRecord(_, labels, formats), _) if is_tuple_type(labels, formats) => {
                 self.check_dependent_tuple(labels, formats)
