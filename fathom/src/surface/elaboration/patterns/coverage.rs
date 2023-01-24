@@ -1,4 +1,5 @@
 //! # Bibliography
+//!
 //! - [Warnings for pattern matching](http://moscova.inria.fr/~maranget/papers/warn/index.html)
 //! - [rustc usefulness check](https://github.com/rust-lang/rust/blob/8a09420ac48658cad726e0a6997687ceac4151e3/compiler/rustc_mir_build/src/thir/pattern/usefulness.rs)
 

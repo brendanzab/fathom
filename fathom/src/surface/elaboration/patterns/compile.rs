@@ -1,14 +1,17 @@
 //! # Bibliography
+//!
 //! - [Compiling pattern matching to good decision trees](https://dl.acm.org/doi/10.1145/1411304.1411311)
 //! - [The Case for Pattern Matching](https://alan-j-hu.github.io/writing/pattern-matching.html)
 //! - [How to compile pattern matching](https://julesjacobs.com/notes/patternmatching/patternmatching.pdf)
 
-// TODO: Use join points to prevent code size explosion. See [Compiling without continuations](https://www.microsoft.com/en-us/research/publication/compiling-without-continuations)
+// TODO: Use join points to prevent code size explosion. See [Compiling without
+// continuations](https://www.microsoft.com/en-us/research/publication/compiling-without-continuations)
 
 use super::*;
 use crate::surface::elaboration;
 
 /// Compilation of pattern matrices to decision trees.
+///
 /// This is the `CC` function in *Compiling pattern matching to good decision
 /// trees*.
 pub fn compile_match<'arena>(
@@ -125,8 +128,8 @@ pub fn compile_match<'arena>(
 
 impl<'arena> PatMatrix<'arena> {
     /// Return the index of any column in the matrix with at least one
-    /// non-wildcard pattern. At the moment, we simply selec the leftmost
-    /// column, but more advanced splitting heuristcs can be used to
+    /// non-wildcard pattern. At the moment, we simply select the leftmost
+    /// column, but more advanced splitting heuristics can be used to
     /// minimize the size of the decision tree and potentially skip some tests
     /// altogether (see section 8 of *Compiling pattern matching to good
     /// decision trees*)
