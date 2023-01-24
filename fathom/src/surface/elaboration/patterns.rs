@@ -73,13 +73,6 @@ impl<'arena> CheckedPattern<'arena> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum PatternMode {
-    Fun,
-    Let,
-    Match,
-}
-
 impl<'interner, 'arena> Context<'interner, 'arena> {
     /// Check that a pattern matches an expected type.
     pub fn check_pattern(
@@ -372,84 +365,121 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
         }
     }
 
-    /// Push a pattern onto the local context
-    pub fn push_pattern(
+    /// Push a local parameter onto the context.
+    pub fn push_local_param(
         &mut self,
         pattern: &CheckedPattern<'arena>,
         scrut: Scrutinee<'arena>,
-        value: ArcValue<'arena>,
-        mode: PatternMode,
-        toplevel: bool,
     ) -> Vec<(Option<StringId>, Scrutinee<'arena>)> {
         let mut defs = Vec::new();
-        self.push_pattern_inner(pattern, scrut, value, mode, toplevel, &mut defs);
+        match pattern {
+            CheckedPattern::ReportedError(_)
+            | CheckedPattern::Placeholder(_)
+            | CheckedPattern::Binder(_, _)
+            | CheckedPattern::ConstLit(_, _) => {
+                let r#type = scrut.r#type.clone();
+                self.local_env.push_param(pattern.name(), r#type);
+            }
+            CheckedPattern::RecordLit(_, labels, patterns) => {
+                let value = self.local_env.next_var();
+                let r#type = scrut.r#type.clone();
+                self.local_env.push_param(None, r#type);
+                self.push_record_pattern(labels, patterns, scrut, value, &mut defs);
+            }
+        }
         defs
     }
 
-    fn push_pattern_inner(
+    /// Push a local definition onto the context.
+    pub fn push_local_def(
         &mut self,
         pattern: &CheckedPattern<'arena>,
         scrut: Scrutinee<'arena>,
         value: ArcValue<'arena>,
-        mode: PatternMode,
-        toplevel: bool,
-        defs: &mut Vec<(Option<StringId>, Scrutinee<'arena>)>,
-    ) {
-        let r#type = scrut.r#type.clone();
+    ) -> Vec<(Option<StringId>, Scrutinee<'arena>)> {
+        let mut defs = Vec::new();
+        match pattern {
+            CheckedPattern::ReportedError(_)
+            | CheckedPattern::Placeholder(_)
+            | CheckedPattern::Binder(_, _)
+            | CheckedPattern::ConstLit(_, _) => {
+                let r#type = scrut.r#type.clone();
+                defs.push((pattern.name(), scrut));
+                self.local_env.push_def(pattern.name(), value, r#type);
+            }
+            CheckedPattern::RecordLit(_, labels, patterns) => {
+                self.push_record_pattern(labels, patterns, scrut, value, &mut defs);
+            }
+        }
+        defs
+    }
+
+    /// Push a pattern from a match arm onto the context.
+    pub fn push_match_pattern(
+        &mut self,
+        pattern: &CheckedPattern<'arena>,
+        scrut: Scrutinee<'arena>,
+        value: ArcValue<'arena>,
+    ) -> Vec<(Option<StringId>, Scrutinee<'arena>)> {
+        let mut defs = Vec::new();
         match pattern {
             CheckedPattern::ReportedError(_) | CheckedPattern::Placeholder(_) => {
-                match (mode, toplevel) {
-                    (PatternMode::Fun, true) => self.local_env.push_param(None, r#type),
-                    (PatternMode::Let, true) => {
-                        defs.push((None, scrut));
-                        self.local_env.push_def(None, value, r#type)
-                    }
-                    (PatternMode::Match, true) => self.local_env.push_def(None, value, r#type),
-                    _ => {}
-                }
+                let r#type = scrut.r#type.clone();
+                self.local_env.push_def(None, value, r#type)
             }
-            CheckedPattern::Binder(_, name) => match (mode, toplevel) {
-                (PatternMode::Fun, true) => self.local_env.push_param(Some(*name), r#type),
-                (PatternMode::Fun, _) | (PatternMode::Let, _) | (PatternMode::Match, _) => {
-                    defs.push((Some(*name), scrut));
-                    self.local_env.push_def(Some(*name), value, r#type)
-                }
-            },
-            CheckedPattern::ConstLit(_, _) => match (mode, toplevel) {
-                (PatternMode::Fun, true) => self.local_env.push_param(None, r#type),
-                (PatternMode::Let, true) => {
-                    defs.push((None, scrut));
-                    self.local_env.push_def(None, value, r#type)
-                }
-                _ => {}
-            },
+            CheckedPattern::Binder(_, name) => {
+                let r#type = scrut.r#type.clone();
+                defs.push((Some(*name), scrut));
+                self.local_env.push_def(Some(*name), value, r#type);
+            }
+            CheckedPattern::ConstLit(_, _) => {}
             CheckedPattern::RecordLit(_, labels, patterns) => {
-                if let (PatternMode::Fun, true) = (mode, toplevel) {
-                    self.local_env.push_param(None, r#type.clone())
+                self.push_record_pattern(labels, patterns, scrut, value, &mut defs);
+            }
+        }
+        defs
+    }
+
+    fn push_record_pattern(
+        &mut self,
+        labels: &[StringId],
+        patterns: &[CheckedPattern<'arena>],
+        scrut: Scrutinee<'arena>,
+        value: ArcValue<'arena>,
+        defs: &mut Vec<(Option<StringId>, Scrutinee<'arena>)>,
+    ) {
+        let range = scrut.range;
+        let mut iter = Iterator::zip(labels.iter(), patterns.iter());
+        let mut types = self
+            .elim_env()
+            .force(&scrut.r#type)
+            .match_record_type()
+            .unwrap()
+            .clone();
+
+        while let Some(((label, pattern), (r#type, next_types))) =
+            Option::zip(iter.next(), self.elim_env().split_telescope(types))
+        {
+            types = next_types(self.local_env.next_var());
+            let value = self.elim_env().record_proj(value.clone(), *label);
+            let expr = core::Term::RecordProj(self.file_range(range).into(), scrut.expr, *label);
+            let scrut = Scrutinee {
+                range,
+                expr: self.scope.to_scope(expr),
+                r#type,
+            };
+
+            match pattern {
+                CheckedPattern::ReportedError(_)
+                | CheckedPattern::Placeholder(_)
+                | CheckedPattern::ConstLit(_, _) => {}
+                CheckedPattern::Binder(_, name) => {
+                    let r#type = scrut.r#type.clone();
+                    defs.push((Some(*name), scrut));
+                    self.local_env.push_def(Some(*name), value, r#type);
                 }
-
-                let range = scrut.range;
-                let mut iter = Iterator::zip(labels.iter(), patterns.iter());
-                let mut telescope = self
-                    .elim_env()
-                    .force(&r#type)
-                    .match_record_type()
-                    .unwrap()
-                    .clone();
-
-                while let Some(((label, pattern), (r#type, next_telescope))) =
-                    Option::zip(iter.next(), self.elim_env().split_telescope(telescope))
-                {
-                    telescope = next_telescope(self.local_env.next_var());
-                    let value = self.elim_env().record_proj(value.clone(), *label);
-                    let expr =
-                        core::Term::RecordProj(self.file_range(range).into(), scrut.expr, *label);
-                    let scrut = Scrutinee {
-                        range,
-                        expr: self.scope.to_scope(expr),
-                        r#type,
-                    };
-                    self.push_pattern_inner(pattern, scrut, value, mode, false, defs)
+                CheckedPattern::RecordLit(_, labels, patterns) => {
+                    self.push_record_pattern(labels, patterns, scrut, value, defs);
                 }
             }
         }

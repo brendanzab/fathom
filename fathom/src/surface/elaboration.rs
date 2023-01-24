@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use scoped_arena::Scope;
 
-use self::patterns::{Body, CheckedPattern, PatMatrix, PatternMode};
+use self::patterns::{Body, CheckedPattern, PatMatrix};
 use crate::alloc::SliceVec;
 use crate::core::semantics::{self, ArcValue, Closure, Head, Telescope, Value};
 use crate::core::{self, prim, Const, Plicity, Prim, UIntStyle};
@@ -828,26 +828,6 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
         // TODO: Reset scopes
 
         term
-    }
-
-    /// Push a local definition onto the context.
-    fn push_local_def(
-        &mut self,
-        pattern: &CheckedPattern<'arena>,
-        scrut: Scrutinee<'arena>,
-        value: ArcValue<'arena>,
-    ) -> Vec<(Option<StringId>, Scrutinee<'arena>)> {
-        self.push_pattern(pattern, scrut, value, PatternMode::Let, true)
-    }
-
-    /// Push a local parameter onto the context.
-    fn push_local_param(
-        &mut self,
-        pattern: &CheckedPattern<'arena>,
-        scrut: Scrutinee<'arena>,
-    ) -> Vec<(Option<StringId>, Scrutinee<'arena>)> {
-        let value = self.local_env.next_var();
-        self.push_pattern(pattern, scrut, value, PatternMode::Fun, true)
     }
 
     /// Check that a surface term conforms to the given type.
@@ -2074,13 +2054,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
         for (pattern, (_, expr)) in patterns.into_iter().zip(equations) {
             let initial_len = self.local_env.len();
-            let defs = self.push_pattern(
-                &pattern,
-                scrut.clone(),
-                value.clone(),
-                PatternMode::Match,
-                true,
-            );
+            let defs = self.push_match_pattern(&pattern, scrut.clone(), value.clone());
             let expr = self.check(expr, &expected_type);
             self.local_env.truncate(initial_len);
 
