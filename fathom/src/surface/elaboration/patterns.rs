@@ -436,10 +436,10 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                     .match_record_type()
                     .unwrap()
                     .clone();
-                while let Some(((label, pattern), (r#type, next_telescope))) = Option::zip(
-                    iter.next(),
-                    self.elim_env().split_telescope(telescope.clone()),
-                ) {
+
+                while let Some(((label, pattern), (r#type, next_telescope))) =
+                    Option::zip(iter.next(), self.elim_env().split_telescope(telescope))
+                {
                     telescope = next_telescope(self.local_env.next_var());
                     let value = self.elim_env().record_proj(value.clone(), *label);
                     let expr =
@@ -684,10 +684,9 @@ impl<'arena> CheckedPattern<'arena> {
                     .unwrap()
                     .clone();
 
-                while let Some(((label, pattern), (r#type, next_telescope))) = Option::zip(
-                    iter.next(),
-                    ctx.elim_env().split_telescope(telescope.clone()),
-                ) {
+                while let Some(((label, pattern), (r#type, next_telescope))) =
+                    Option::zip(iter.next(), ctx.elim_env().split_telescope(telescope))
+                {
                     telescope = next_telescope(ctx.local_env.next_var());
                     let scrut_expr = core::Term::RecordProj(Span::Empty, scrut.expr, *label);
                     let scrut_expr = ctx.scope.to_scope(scrut_expr);
