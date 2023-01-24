@@ -19,7 +19,11 @@ pub enum CheckedPattern<'arena> {
     /// Constant literals
     ConstLit(ByteRange, Const),
     /// Record literals
-    RecordLit(ByteRange, &'arena [StringId], &'arena [Self]),
+    RecordLit(
+        ByteRange,
+        &'arena [StringId],
+        &'arena [CheckedPattern<'arena>],
+    ),
 }
 
 impl<'arena> CheckedPattern<'arena> {
@@ -510,13 +514,16 @@ pub struct Body<'arena> {
 }
 
 impl<'arena> Body<'arena> {
-    pub fn new(expr: core::Term<'arena>, defs: Vec<(Option<StringId>, Scrutinee<'arena>)>) -> Self {
-        Self { expr, defs }
+    pub fn new(
+        expr: core::Term<'arena>,
+        defs: Vec<(Option<StringId>, Scrutinee<'arena>)>,
+    ) -> Body<'arena> {
+        Body { expr, defs }
     }
 }
 
 impl<'arena> PatMatrix<'arena> {
-    pub fn new(rows: Vec<PatRow<'arena>>) -> Self {
+    pub fn new(rows: Vec<PatRow<'arena>>) -> PatMatrix<'arena> {
         if let Some((first, rows)) = rows.split_first() {
             for row in rows {
                 debug_assert_eq!(
@@ -527,11 +534,11 @@ impl<'arena> PatMatrix<'arena> {
             }
         }
         let indices = (0..rows.len()).collect();
-        Self { rows, indices }
+        PatMatrix { rows, indices }
     }
 
-    pub fn singleton(scrut: Scrutinee<'arena>, pat: CheckedPattern<'arena>) -> Self {
-        Self::new(vec![PatRow::singleton((pat, scrut))])
+    pub fn singleton(scrut: Scrutinee<'arena>, pat: CheckedPattern<'arena>) -> PatMatrix<'arena> {
+        PatMatrix::new(vec![PatRow::singleton((pat, scrut))])
     }
 
     pub fn num_rows(&self) -> usize {
@@ -596,17 +603,17 @@ pub struct PatRow<'arena> {
 }
 
 impl<'arena> PatRow<'arena> {
-    pub fn new(pairs: Vec<PatPair<'arena>>) -> Self {
-        Self { pairs }
+    pub fn new(pairs: Vec<PatPair<'arena>>) -> PatRow<'arena> {
+        PatRow { pairs }
     }
 
-    pub fn singleton(pair: PatPair<'arena>) -> Self {
-        Self::new(vec![pair])
+    pub fn singleton(pair: PatPair<'arena>) -> PatRow<'arena> {
+        PatRow::new(vec![pair])
     }
 
-    pub fn tail(&self) -> Self {
+    pub fn tail(&self) -> PatRow<'arena> {
         debug_assert!(!self.is_empty());
-        Self::new(self.pairs[1..].to_vec())
+        PatRow::new(self.pairs[1..].to_vec())
     }
 
     pub fn len(&self) -> usize {
@@ -625,12 +632,12 @@ impl<'arena> PatRow<'arena> {
         self.pairs.iter().all(|(pat, _)| pat.is_wildcard())
     }
 
-    pub fn split_first(&self) -> Option<(&PatPair<'arena>, Self)> {
+    pub fn split_first(&self) -> Option<(&PatPair<'arena>, PatRow<'arena>)> {
         let (first, rest) = self.pairs.split_first()?;
-        Some((first, Self::new(rest.to_vec())))
+        Some((first, PatRow::new(rest.to_vec())))
     }
 
-    pub fn append(&mut self, mut other: Self) {
+    pub fn append(&mut self, mut other: PatRow<'arena>) {
         self.pairs.append(&mut other.pairs);
     }
 
@@ -714,7 +721,7 @@ impl<'arena> PatMatrix<'arena> {
         &self,
         ctx: &mut elaboration::Context<'_, 'arena>,
         ctor: &Constructor,
-    ) -> Self {
+    ) -> PatMatrix<'arena> {
         let (rows, indices) = self
             .iter()
             .flat_map(|(row, body)| {
@@ -722,13 +729,13 @@ impl<'arena> PatMatrix<'arena> {
                 Some((row, body))
             })
             .unzip();
-        Self { rows, indices }
+        PatMatrix { rows, indices }
     }
 
     /// Discard the first column, and all rows starting with a constructed
     /// pattern. This is the `D` function in *Compiling pattern matching to
     /// good decision trees*
-    pub fn default(&self) -> Self {
+    pub fn default(&self) -> PatMatrix<'arena> {
         debug_assert!(!self.is_unit(), "Cannot default PatMatrix with no columns");
         let (rows, indices) = self
             .iter()
@@ -739,7 +746,7 @@ impl<'arena> PatMatrix<'arena> {
                 CheckedPattern::ConstLit(_, _) | CheckedPattern::RecordLit(_, _, _) => None,
             })
             .unzip();
-        Self { rows, indices }
+        PatMatrix { rows, indices }
     }
 }
 
