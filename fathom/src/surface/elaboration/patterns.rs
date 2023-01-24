@@ -485,7 +485,14 @@ impl<'arena> Constructor<'arena> {
     /// `None` represents infinity
     pub fn num_inhabitants(&self) -> Option<u128> {
         match self {
-            Constructor::Const(r#const) => r#const.num_inhabitants(),
+            Constructor::Const(r#const) => match r#const {
+                Const::Bool(_) => Some(2),
+                Const::U8(_, _) | Const::S8(_) => Some(1 << 8),
+                Const::U16(_, _) | Const::S16(_) => Some(1 << 16),
+                Const::U32(_, _) | Const::S32(_) => Some(1 << 32),
+                Const::U64(_, _) | Const::S64(_) => Some(1 << 64),
+                Const::F32(_) | Const::F64(_) | Const::Pos(_) | Const::Ref(_) => None,
+            },
             Constructor::Record(_) => Some(1),
         }
     }
