@@ -1,0 +1,21 @@
+stdout = ''
+stderr = '''
+error: non-exhaustive patterns in match expression
+  ┌─ tests/fail/elaboration/non-exhaustive-patterns/fun-lit-synth.fathom:3:6
+  │
+3 │ fun (1 : U32) => {}
+  │ -----^-------------
+  │ │    │
+  │ │    patterns not covered
+  │ in match expression
+
+error: non-exhaustive patterns in match expression
+  ┌─ tests/fail/elaboration/non-exhaustive-patterns/fun-lit-synth.fathom:3:6
+  │
+3 │ fun (1 : U32) => {}
+  │ -----^-------------
+  │ │    │
+  │ │    patterns not covered
+  │ in match expression
+
+'''
