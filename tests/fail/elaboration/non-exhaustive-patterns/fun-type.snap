@@ -1,12 +1,9 @@
 stdout = ''
 stderr = '''
 error: non-exhaustive patterns in match expression
-  ┌─ tests/fail/elaboration/non-exhaustive-patterns/fun-type.fathom:3:1
+  ┌─ tests/fail/elaboration/non-exhaustive-patterns/fun-type.fathom:3:6
   │
 3 │ fun (1 : U32) -> U32
-  │ ^^^^^^^^^^^^^^^^^^^^
-  │ │
-  │ patterns not covered
-  │ in match expression
+  │      ^ patterns not covered
 
 '''

@@ -22,8 +22,7 @@ pub enum Message {
         pattern_range: FileRange,
     },
     NonExhaustiveMatchExpr {
-        match_expr_range: FileRange,
-        scrutinee_expr_range: FileRange,
+        scrutinee_range: FileRange,
     },
     UnreachablePattern {
         range: FileRange,
@@ -173,13 +172,11 @@ impl Message {
                 ])
                 .with_notes(vec!["expected an irrefutable pattern".to_owned()]),
             Message::NonExhaustiveMatchExpr {
-                match_expr_range,
-                scrutinee_expr_range,
+                scrutinee_range: scrutinee_expr_range,
             } => Diagnostic::error()
                 .with_message("non-exhaustive patterns in match expression")
                 .with_labels(vec![
-                    primary_label(scrutinee_expr_range).with_message("patterns not covered"),
-                    secondary_label(match_expr_range).with_message("in match expression"),
+                    primary_label(scrutinee_expr_range).with_message("patterns not covered")
                 ]),
             Message::UnreachablePattern { range } => Diagnostic::warning()
                 .with_message("unreachable pattern")

@@ -10,10 +10,7 @@ error: non-exhaustive patterns in match expression
   ┌─ tests/fail/elaboration/non-exhaustive-patterns/match-synth.fathom:3:7
   │
 3 │ match (x : U8) {}
-  │ ------^^^^^^^^---
-  │ │     │
-  │ │     patterns not covered
-  │ in match expression
+  │       ^^^^^^^^ patterns not covered
 
 error: failed to infer match expression type
   ┌─ tests/fail/elaboration/non-exhaustive-patterns/match-synth.fathom:3:1

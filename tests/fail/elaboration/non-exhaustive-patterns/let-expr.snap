@@ -2,11 +2,8 @@ stdout = ''
 stderr = '''
 error: non-exhaustive patterns in match expression
   ┌─ tests/fail/elaboration/non-exhaustive-patterns/let-expr.fathom:3:15
-  │  
-3 │ ╭ let 1 : U32 = 2;
-  │                 ^ patterns not covered
-4 │ │ 
-5 │ │ {}
-  │ ╰──' in match expression
+  │
+3 │ let 1 : U32 = 2;
+  │               ^ patterns not covered
 
 '''

@@ -13,22 +13,20 @@ use crate::surface::elaboration;
 
 pub fn check_coverage<'arena>(
     ctx: &mut elaboration::Context<'_, 'arena>,
-    matrix: &PatMatrix<'arena>,
-    match_range: ByteRange,
     scrut_range: ByteRange,
+    matrix: &PatMatrix<'arena>,
 ) {
     let dummy_scrut = Scrutinee {
         range: scrut_range,
         expr: ctx.scope.to_scope(core::Term::error(Span::Empty)),
         r#type: ArcValue::new(ctx.file_range(scrut_range).into(), Arc::new(Value::ERROR)),
     };
-    let row = PatRow::singleton((CheckedPattern::Placeholder(match_range), dummy_scrut));
+    let row = PatRow::singleton((CheckedPattern::Placeholder(scrut_range), dummy_scrut));
 
     // A matrix is exhaustive iff the the wildcard pattern `_` is not useful
     if is_useful(ctx, matrix, &row) {
         ctx.push_message(Message::NonExhaustiveMatchExpr {
-            match_expr_range: ctx.file_range(match_range),
-            scrutinee_expr_range: ctx.file_range(scrut_range),
+            scrutinee_range: ctx.file_range(scrut_range),
         });
     }
 

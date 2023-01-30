@@ -855,12 +855,10 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                 let body_expr = self.check(body_expr, &expected_type);
                 self.local_env.truncate(initial_len);
 
-                let matrix = PatMatrix::singleton(scrut, def_pattern);
                 let body = self.elab_match(
-                    matrix,
-                    &[Body::new(body_expr, defs)],
-                    *range,
                     def_expr.range(),
+                    PatMatrix::singleton(scrut, def_pattern),
+                    &[Body::new(body_expr, defs)],
                 );
                 self.insert_extra_let(*range, body, extra_def)
             }
@@ -1235,12 +1233,10 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                 let (body_expr, body_type) = self.synth(body_expr);
                 self.local_env.truncate(initial_len);
 
-                let matrix = patterns::PatMatrix::singleton(scrut, def_pattern);
                 let body = self.elab_match(
-                    matrix,
-                    &[Body::new(body_expr, defs)],
-                    *range,
                     def_expr.range(),
+                    PatMatrix::singleton(scrut, def_pattern),
+                    &[Body::new(body_expr, defs)],
                 );
                 let let_expr = self.insert_extra_let(*range, body, extra_def);
                 (let_expr, body_type)
@@ -1571,8 +1567,6 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                         let initial_len = self.local_env.len();
                         let (pattern, scrut) = self.check_param(param, expected_type);
                         let name = pattern.name();
-                        let scrut_type = scrut.r#type.clone();
-                        let scrut_range = scrut.range;
 
                         let (defs, body_term) = {
                             let arg_expr = self.local_env.next_var();
@@ -1586,15 +1580,12 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                             (defs, body_term)
                         };
 
-                        let matrix = PatMatrix::singleton(scrut, pattern);
-
                         let body_term = {
-                            self.local_env.push_param(name, scrut_type);
+                            self.local_env.push_param(name, scrut.r#type.clone());
                             let body_term = self.elab_match(
-                                matrix,
+                                scrut.range,
+                                PatMatrix::singleton(scrut, pattern),
                                 &[Body::new(body_term, defs)],
-                                range,
-                                scrut_range,
                             );
                             self.local_env.truncate(initial_len);
                             body_term
@@ -1673,8 +1664,6 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                 let initial_len = self.local_env.len();
                 let (pattern, scrut) = self.synth_param(param);
                 let name = pattern.name();
-                let scrut_type = scrut.r#type.clone();
-                let scrut_range = scrut.range;
 
                 let (defs, body_term, body_type) = {
                     let defs = self.push_local_param(&pattern, scrut.clone());
@@ -1685,15 +1674,12 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                     (defs, body_term, body_type)
                 };
 
-                let matrix = PatMatrix::singleton(scrut, pattern);
-
                 let term = {
-                    self.local_env.push_param(name, scrut_type.clone());
+                    self.local_env.push_param(name, scrut.r#type.clone());
                     let body_term = self.elab_match(
-                        matrix.clone(),
+                        scrut.range,
+                        PatMatrix::singleton(scrut.clone(), pattern.clone()),
                         &[Body::new(body_term, defs.clone())],
-                        range,
-                        scrut_range,
                     );
                     self.local_env.truncate(initial_len);
                     core::Term::FunLit(
@@ -1705,18 +1691,17 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                 };
 
                 let r#type = {
-                    self.local_env.push_param(name, scrut_type.clone());
+                    self.local_env.push_param(name, scrut.r#type.clone());
                     let body_type = self.elab_match(
-                        matrix,
-                        &[Body::new(body_type, defs.clone())],
-                        range,
-                        scrut_range,
+                        scrut.range,
+                        PatMatrix::singleton(scrut.clone(), pattern),
+                        &[Body::new(body_type, defs)],
                     );
                     self.local_env.truncate(initial_len);
                     Spanned::empty(Arc::new(Value::FunType(
                         param.plicity,
                         name,
-                        scrut_type,
+                        scrut.r#type.clone(),
                         Closure::new(self.local_env.exprs.clone(), self.scope.to_scope(body_type)),
                     )))
                 };
@@ -1751,9 +1736,11 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
                 let body_expr = {
                     self.local_env.push_param(name, scrut.r#type.clone());
-                    let matrix = PatMatrix::singleton(scrut, pattern);
-                    let body_expr =
-                        self.elab_match(matrix, &[Body::new(body_expr, defs)], range, range);
+                    let body_expr = self.elab_match(
+                        scrut.range,
+                        PatMatrix::singleton(scrut, pattern),
+                        &[Body::new(body_expr, defs)],
+                    );
                     self.local_env.truncate(initial_len);
                     body_expr
                 };
@@ -2062,8 +2049,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
             bodies.push(Body::new(expr, defs));
         }
 
-        let matrix = patterns::PatMatrix::new(rows);
-        let body = self.elab_match(matrix, &bodies, range, scrut.range);
+        let body = self.elab_match(scrut.range, PatMatrix::new(rows), &bodies);
         self.insert_extra_let(range, body, extra_def)
     }
 
@@ -2173,17 +2159,16 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
     fn elab_match(
         &mut self,
+        scrutinee_range: ByteRange,
         mut matrix: PatMatrix<'arena>,
         bodies: &[Body<'arena>],
-        match_range: ByteRange,
-        scrut_range: ByteRange,
     ) -> core::Term<'arena> {
         debug_assert_eq!(
             matrix.num_rows(),
             bodies.len(),
             "Must have one body for each row"
         );
-        patterns::check_coverage(self, &matrix, match_range, scrut_range);
+        patterns::check_coverage(self, scrutinee_range, &matrix);
         patterns::compile_match(self, &mut matrix, bodies, EnvLen::new())
     }
 }
