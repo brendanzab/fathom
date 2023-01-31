@@ -1,5 +1,12 @@
-use super::*;
-use crate::surface::elaboration;
+use std::sync::Arc;
+
+use crate::alloc::SliceVec;
+use crate::core::semantics::{ArcValue, Telescope, Value};
+use crate::core::{self, Const, Prim};
+use crate::source::{ByteRange, Span, Spanned, StringId};
+use crate::surface::elaboration::reporting::Message;
+use crate::surface::elaboration::{self, Context, MetaSource, Scrutinee};
+use crate::surface::{Pattern, Term};
 
 mod compile;
 mod coverage;

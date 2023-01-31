@@ -7,8 +7,12 @@
 // TODO: Use join points to prevent code size explosion. See [Compiling without
 // continuations](https://www.microsoft.com/en-us/research/publication/compiling-without-continuations)
 
-use super::*;
+use crate::alloc::SliceVec;
+use crate::core;
+use crate::env::EnvLen;
+use crate::source::Span;
 use crate::surface::elaboration;
+use crate::surface::elaboration::patterns::{Body, CheckedPattern, Constructor, Matrix};
 
 /// Compilation of pattern matrices to decision trees.
 ///

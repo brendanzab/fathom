@@ -8,8 +8,14 @@
 // of missing patterns is described in part two of *Warnings for pattern
 // matching*
 
-use super::*;
-use crate::surface::elaboration;
+use std::sync::Arc;
+
+use crate::core;
+use crate::core::semantics::{ArcValue, Value};
+use crate::source::{ByteRange, Span};
+use crate::surface::elaboration::patterns::{CheckedPattern, Constructor, Matrix, Row};
+use crate::surface::elaboration::reporting::Message;
+use crate::surface::elaboration::{self, Scrutinee};
 
 pub fn check_coverage<'arena>(
     ctx: &mut elaboration::Context<'_, 'arena>,
