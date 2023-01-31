@@ -14,14 +14,14 @@ use crate::surface::elaboration;
 pub fn check_coverage<'arena>(
     ctx: &mut elaboration::Context<'_, 'arena>,
     scrut_range: ByteRange,
-    matrix: &PatMatrix<'arena>,
+    matrix: &Matrix<'arena>,
 ) {
     let dummy_scrut = Scrutinee {
         range: scrut_range,
         expr: ctx.scope.to_scope(core::Term::error(Span::Empty)),
         r#type: ArcValue::new(ctx.file_range(scrut_range).into(), Arc::new(Value::ERROR)),
     };
-    let row = PatRow::singleton((CheckedPattern::Placeholder(scrut_range), dummy_scrut));
+    let row = Row::singleton((CheckedPattern::Placeholder(scrut_range), dummy_scrut));
 
     // A matrix is exhaustive iff the the wildcard pattern `_` is not useful
     if is_useful(ctx, matrix, &row) {
@@ -34,7 +34,7 @@ pub fn check_coverage<'arena>(
     // above it
     let mut rows = Vec::with_capacity(matrix.num_rows());
     for (row, _) in matrix.iter() {
-        let matrix = PatMatrix::new(rows.clone());
+        let matrix = Matrix::new(rows.clone());
         rows.push(row.clone());
 
         // Don't check reachability for patterns with errors
@@ -56,8 +56,8 @@ pub fn check_coverage<'arena>(
 /// *Warnings for pattern matching*
 fn is_useful<'arena>(
     ctx: &mut elaboration::Context<'_, 'arena>,
-    matrix: &PatMatrix<'arena>,
-    row: &PatRow<'arena>,
+    matrix: &Matrix<'arena>,
+    row: &Row<'arena>,
 ) -> bool {
     if let Some(n) = matrix.num_columns() {
         debug_assert_eq!(
@@ -119,8 +119,8 @@ fn is_useful<'arena>(
 
 fn is_useful_ctor<'arena>(
     ctx: &mut elaboration::Context<'_, 'arena>,
-    matrix: &PatMatrix<'arena>,
-    row: &PatRow<'arena>,
+    matrix: &Matrix<'arena>,
+    row: &Row<'arena>,
     ctor: &Constructor<'arena>,
 ) -> bool {
     let matrix = matrix.specialize(ctx, ctor);

@@ -16,7 +16,7 @@ use crate::surface::elaboration;
 /// trees*.
 pub fn compile_match<'arena>(
     ctx: &mut elaboration::Context<'_, 'arena>,
-    matrix: &mut PatMatrix<'arena>,
+    matrix: &mut Matrix<'arena>,
     bodies: &[Body<'arena>],
     mut shift_amount: EnvLen,
 ) -> core::Term<'arena> {
@@ -126,7 +126,7 @@ pub fn compile_match<'arena>(
     unreachable!()
 }
 
-impl<'arena> PatMatrix<'arena> {
+impl<'arena> Matrix<'arena> {
     /// Return the index of any column in the matrix with at least one
     /// non-wildcard pattern. At the moment, we simply select the leftmost
     /// column, but more advanced splitting heuristics can be used to

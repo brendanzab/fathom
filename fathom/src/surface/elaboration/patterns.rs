@@ -532,8 +532,8 @@ impl<'arena> Constructor<'arena> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PatMatrix<'arena> {
-    rows: Vec<PatRow<'arena>>,
+pub struct Matrix<'arena> {
+    rows: Vec<Row<'arena>>,
     indices: Vec<usize>,
 }
 
@@ -555,8 +555,8 @@ impl<'arena> Body<'arena> {
     }
 }
 
-impl<'arena> PatMatrix<'arena> {
-    pub fn new(rows: Vec<PatRow<'arena>>) -> PatMatrix<'arena> {
+impl<'arena> Matrix<'arena> {
+    pub fn new(rows: Vec<Row<'arena>>) -> Matrix<'arena> {
         if let Some((first, rows)) = rows.split_first() {
             for row in rows {
                 debug_assert_eq!(
@@ -567,11 +567,11 @@ impl<'arena> PatMatrix<'arena> {
             }
         }
         let indices = (0..rows.len()).collect();
-        PatMatrix { rows, indices }
+        Matrix { rows, indices }
     }
 
-    pub fn singleton(scrut: Scrutinee<'arena>, pat: CheckedPattern<'arena>) -> PatMatrix<'arena> {
-        PatMatrix::new(vec![PatRow::singleton((pat, scrut))])
+    pub fn singleton(scrut: Scrutinee<'arena>, pat: CheckedPattern<'arena>) -> Matrix<'arena> {
+        Matrix::new(vec![Row::singleton((pat, scrut))])
     }
 
     pub fn num_rows(&self) -> usize {
@@ -594,11 +594,11 @@ impl<'arena> PatMatrix<'arena> {
     }
 
     /// Iterate over all the pairs in the `index`th column
-    pub fn column(&self, index: usize) -> impl ExactSizeIterator<Item = &PatPair<'arena>> + '_ {
+    pub fn column(&self, index: usize) -> impl ExactSizeIterator<Item = &Pair<'arena>> + '_ {
         self.rows.iter().map(move |row| &row.pairs[index])
     }
 
-    pub fn row(&self, index: usize) -> &PatRow<'arena> {
+    pub fn row(&self, index: usize) -> &Row<'arena> {
         &self.rows[index]
     }
 
@@ -623,30 +623,30 @@ impl<'arena> PatMatrix<'arena> {
         ctors
     }
 
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&PatRow<'arena>, usize)> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&Row<'arena>, usize)> {
         self.rows.iter().zip(self.indices.iter().copied())
     }
 }
 
-pub type PatPair<'arena> = (CheckedPattern<'arena>, Scrutinee<'arena>);
+pub type Pair<'arena> = (CheckedPattern<'arena>, Scrutinee<'arena>);
 
 #[derive(Debug, Clone)]
-pub struct PatRow<'arena> {
-    pairs: Vec<PatPair<'arena>>,
+pub struct Row<'arena> {
+    pairs: Vec<Pair<'arena>>,
 }
 
-impl<'arena> PatRow<'arena> {
-    pub fn new(pairs: Vec<PatPair<'arena>>) -> PatRow<'arena> {
-        PatRow { pairs }
+impl<'arena> Row<'arena> {
+    pub fn new(pairs: Vec<Pair<'arena>>) -> Row<'arena> {
+        Row { pairs }
     }
 
-    pub fn singleton(pair: PatPair<'arena>) -> PatRow<'arena> {
-        PatRow::new(vec![pair])
+    pub fn singleton(pair: Pair<'arena>) -> Row<'arena> {
+        Row::new(vec![pair])
     }
 
-    pub fn tail(&self) -> PatRow<'arena> {
+    pub fn tail(&self) -> Row<'arena> {
         debug_assert!(!self.is_empty());
-        PatRow::new(self.pairs[1..].to_vec())
+        Row::new(self.pairs[1..].to_vec())
     }
 
     pub fn len(&self) -> usize {
@@ -657,7 +657,7 @@ impl<'arena> PatRow<'arena> {
         self.pairs.is_empty()
     }
 
-    pub fn first(&self) -> Option<&PatPair<'arena>> {
+    pub fn first(&self) -> Option<&Pair<'arena>> {
         self.pairs.first()
     }
 
@@ -665,12 +665,12 @@ impl<'arena> PatRow<'arena> {
         self.pairs.iter().all(|(pat, _)| pat.is_wildcard())
     }
 
-    pub fn split_first(&self) -> Option<(&PatPair<'arena>, PatRow<'arena>)> {
+    pub fn split_first(&self) -> Option<(&Pair<'arena>, Row<'arena>)> {
         let (first, rest) = self.pairs.split_first()?;
-        Some((first, PatRow::new(rest.to_vec())))
+        Some((first, Row::new(rest.to_vec())))
     }
 
-    pub fn append(&mut self, mut other: PatRow<'arena>) {
+    pub fn append(&mut self, mut other: Row<'arena>) {
         self.pairs.append(&mut other.pairs);
     }
 
@@ -686,17 +686,17 @@ impl<'arena> CheckedPattern<'arena> {
         ctx: &mut elaboration::Context<'_, 'arena>,
         ctor: &Constructor,
         scrut: &Scrutinee<'arena>,
-    ) -> Option<PatRow<'arena>> {
+    ) -> Option<Row<'arena>> {
         match self {
             CheckedPattern::ReportedError(range)
             | CheckedPattern::Placeholder(range)
             | CheckedPattern::Binder(range, _) => {
                 let columns =
                     vec![(CheckedPattern::Placeholder(*range), scrut.clone()); ctor.arity()];
-                Some(PatRow::new(columns))
+                Some(Row::new(columns))
             }
             CheckedPattern::ConstLit(_, r#const) if *ctor == Constructor::Const(*r#const) => {
-                Some(PatRow::new(vec![]))
+                Some(Row::new(vec![]))
             }
             CheckedPattern::RecordLit(_, labels, patterns)
                 if *ctor == Constructor::Record(labels) =>
@@ -723,20 +723,20 @@ impl<'arena> CheckedPattern<'arena> {
                     };
                     columns.push((pattern.clone(), scrut));
                 }
-                Some(PatRow::new(columns))
+                Some(Row::new(columns))
             }
             CheckedPattern::ConstLit(_, _) | CheckedPattern::RecordLit(_, _, _) => None,
         }
     }
 }
 
-impl<'arena> PatRow<'arena> {
+impl<'arena> Row<'arena> {
     /// Specialise `self` with respect to the constructor `ctor`.
     pub fn specialize(
         &self,
         ctx: &mut elaboration::Context<'_, 'arena>,
         ctor: &Constructor,
-    ) -> Option<PatRow<'arena>> {
+    ) -> Option<Row<'arena>> {
         debug_assert!(!self.pairs.is_empty(), "Cannot specialize empty PatRow");
         let ((pat, scrut), rest) = self.split_first().unwrap();
         let mut row = pat.specialize(ctx, ctor, scrut)?;
@@ -745,7 +745,7 @@ impl<'arena> PatRow<'arena> {
     }
 }
 
-impl<'arena> PatMatrix<'arena> {
+impl<'arena> Matrix<'arena> {
     /// Specialise `self` with respect to the constructor `ctor`.
     /// This is the `S` function in *Compiling pattern matching to good decision
     /// trees*
@@ -753,7 +753,7 @@ impl<'arena> PatMatrix<'arena> {
         &self,
         ctx: &mut elaboration::Context<'_, 'arena>,
         ctor: &Constructor,
-    ) -> PatMatrix<'arena> {
+    ) -> Matrix<'arena> {
         let (rows, indices) = self
             .iter()
             .flat_map(|(row, body)| {
@@ -761,13 +761,13 @@ impl<'arena> PatMatrix<'arena> {
                 Some((row, body))
             })
             .unzip();
-        PatMatrix { rows, indices }
+        Matrix { rows, indices }
     }
 
     /// Discard the first column, and all rows starting with a constructed
     /// pattern. This is the `D` function in *Compiling pattern matching to
     /// good decision trees*
-    pub fn default(&self) -> PatMatrix<'arena> {
+    pub fn default(&self) -> Matrix<'arena> {
         debug_assert!(!self.is_unit(), "Cannot default PatMatrix with no columns");
         let (rows, indices) = self
             .iter()
@@ -778,7 +778,7 @@ impl<'arena> PatMatrix<'arena> {
                 CheckedPattern::ConstLit(_, _) | CheckedPattern::RecordLit(_, _, _) => None,
             })
             .unzip();
-        PatMatrix { rows, indices }
+        Matrix { rows, indices }
     }
 }
 

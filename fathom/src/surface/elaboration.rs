@@ -26,13 +26,13 @@ use std::sync::Arc;
 
 use scoped_arena::Scope;
 
-use self::patterns::{Body, CheckedPattern, PatMatrix};
 use crate::alloc::SliceVec;
 use crate::core::semantics::{self, ArcValue, Closure, Head, Telescope, Value};
 use crate::core::{self, prim, Const, Plicity, Prim, UIntStyle};
 use crate::env::{self, EnvLen, Level, SharedEnv, UniqueEnv};
 use crate::files::FileId;
 use crate::source::{BytePos, ByteRange, FileRange, Span, Spanned, StringId, StringInterner};
+use crate::surface::elaboration::patterns::CheckedPattern;
 use crate::surface::elaboration::reporting::Message;
 use crate::surface::{
     distillation, pretty, BinOp, FormatField, Item, Module, Param, Pattern, Term,
@@ -857,8 +857,8 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
                 let body = self.elab_match(
                     def_expr.range(),
-                    PatMatrix::singleton(scrut, def_pattern),
-                    &[Body::new(body_expr, defs)],
+                    patterns::Matrix::singleton(scrut, def_pattern),
+                    &[patterns::Body::new(body_expr, defs)],
                 );
                 self.insert_extra_let(*range, body, extra_def)
             }
@@ -1235,8 +1235,8 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
                 let body = self.elab_match(
                     def_expr.range(),
-                    PatMatrix::singleton(scrut, def_pattern),
-                    &[Body::new(body_expr, defs)],
+                    patterns::Matrix::singleton(scrut, def_pattern),
+                    &[patterns::Body::new(body_expr, defs)],
                 );
                 let let_expr = self.insert_extra_let(*range, body, extra_def);
                 (let_expr, body_type)
@@ -1584,8 +1584,8 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                             self.local_env.push_param(name, scrut.r#type.clone());
                             let body_term = self.elab_match(
                                 scrut.range,
-                                PatMatrix::singleton(scrut, pattern),
-                                &[Body::new(body_term, defs)],
+                                patterns::Matrix::singleton(scrut, pattern),
+                                &[patterns::Body::new(body_term, defs)],
                             );
                             self.local_env.truncate(initial_len);
                             body_term
@@ -1678,8 +1678,8 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                     self.local_env.push_param(name, scrut.r#type.clone());
                     let body_term = self.elab_match(
                         scrut.range,
-                        PatMatrix::singleton(scrut.clone(), pattern.clone()),
-                        &[Body::new(body_term, defs.clone())],
+                        patterns::Matrix::singleton(scrut.clone(), pattern.clone()),
+                        &[patterns::Body::new(body_term, defs.clone())],
                     );
                     self.local_env.truncate(initial_len);
                     core::Term::FunLit(
@@ -1694,8 +1694,8 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                     self.local_env.push_param(name, scrut.r#type.clone());
                     let body_type = self.elab_match(
                         scrut.range,
-                        PatMatrix::singleton(scrut.clone(), pattern),
-                        &[Body::new(body_type, defs)],
+                        patterns::Matrix::singleton(scrut.clone(), pattern),
+                        &[patterns::Body::new(body_type, defs)],
                     );
                     self.local_env.truncate(initial_len);
                     Spanned::empty(Arc::new(Value::FunType(
@@ -1738,8 +1738,8 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                     self.local_env.push_param(name, scrut.r#type.clone());
                     let body_expr = self.elab_match(
                         scrut.range,
-                        PatMatrix::singleton(scrut, pattern),
-                        &[Body::new(body_expr, defs)],
+                        patterns::Matrix::singleton(scrut, pattern),
+                        &[patterns::Body::new(body_expr, defs)],
                     );
                     self.local_env.truncate(initial_len);
                     body_expr
@@ -2045,11 +2045,11 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
             let expr = self.check(expr, &expected_type);
             self.local_env.truncate(initial_len);
 
-            rows.push(patterns::PatRow::singleton((pattern, scrut.clone())));
-            bodies.push(Body::new(expr, defs));
+            rows.push(patterns::Row::singleton((pattern, scrut.clone())));
+            bodies.push(patterns::Body::new(expr, defs));
         }
 
-        let body = self.elab_match(scrut.range, PatMatrix::new(rows), &bodies);
+        let body = self.elab_match(scrut.range, patterns::Matrix::new(rows), &bodies);
         self.insert_extra_let(range, body, extra_def)
     }
 
@@ -2160,8 +2160,8 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
     fn elab_match(
         &mut self,
         scrutinee_range: ByteRange,
-        mut matrix: PatMatrix<'arena>,
-        bodies: &[Body<'arena>],
+        mut matrix: patterns::Matrix<'arena>,
+        bodies: &[patterns::Body<'arena>],
     ) -> core::Term<'arena> {
         debug_assert_eq!(
             matrix.num_rows(),
