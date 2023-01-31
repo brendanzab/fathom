@@ -137,7 +137,7 @@ impl<'arena> Matrix<'arena> {
     /// minimize the size of the decision tree and potentially skip some tests
     /// altogether (see section 8 of *Compiling pattern matching to good
     /// decision trees*)
-    pub fn column_to_split_on(&self) -> Option<usize> {
+    fn column_to_split_on(&self) -> Option<usize> {
         debug_assert!(!self.is_null(), "Cannot split null PatternMatrix");
 
         (0..self.num_columns().unwrap()).find(|&column| {
@@ -150,7 +150,7 @@ impl<'arena> Matrix<'arena> {
         })
     }
 
-    pub fn swap_columns(&mut self, column1: usize, column2: usize) {
+    fn swap_columns(&mut self, column1: usize, column2: usize) {
         debug_assert!(
             column1 < self.num_columns().unwrap_or(0),
             "column1 is out of bounds (num_columns = {:?})",

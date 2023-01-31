@@ -490,21 +490,21 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Constructor<'arena> {
+enum Constructor<'arena> {
     Const(Const),
     Record(&'arena [StringId]),
 }
 
 impl<'arena> Constructor<'arena> {
     /// Return number of fields `self` carries
-    pub fn arity(&self) -> usize {
+    fn arity(&self) -> usize {
         match self {
             Constructor::Const(_) => 0,
             Constructor::Record(labels) => labels.len(),
         }
     }
 
-    pub fn is_exhaustive(ctors: &[Constructor]) -> bool {
+    fn is_exhaustive(ctors: &[Constructor]) -> bool {
         match ctors.first() {
             None => false,
             Some(ctor) => match ctor.num_inhabitants() {
@@ -516,7 +516,7 @@ impl<'arena> Constructor<'arena> {
 
     /// Return the number of inhabitants of `self`.
     /// `None` represents infinity
-    pub fn num_inhabitants(&self) -> Option<u128> {
+    fn num_inhabitants(&self) -> Option<u128> {
         match self {
             Constructor::Const(r#const) => match r#const {
                 Const::Bool(_) => Some(2),
@@ -530,7 +530,7 @@ impl<'arena> Constructor<'arena> {
         }
     }
 
-    pub fn as_const(&self) -> Option<&Const> {
+    fn as_const(&self) -> Option<&Const> {
         match self {
             Constructor::Const(r#const) => Some(r#const),
             _ => None,
@@ -585,36 +585,36 @@ impl<'arena> Matrix<'arena> {
         self.rows.len()
     }
 
-    pub fn num_columns(&self) -> Option<usize> {
+    fn num_columns(&self) -> Option<usize> {
         self.rows.first().map(|row| row.len())
     }
 
     /// Return true if `self` is the null matrix, `∅` - ie `self` has zero rows
-    pub fn is_null(&self) -> bool {
+    fn is_null(&self) -> bool {
         self.num_rows() == 0
     }
 
     /// Return true if `self` is the unit matrix, `()` - ie `self` has zero
     /// columns and at least one row
-    pub fn is_unit(&self) -> bool {
+    fn is_unit(&self) -> bool {
         self.num_columns() == Some(0)
     }
 
     /// Iterate over all the pairs in the `index`th column
-    pub fn column(&self, index: usize) -> impl ExactSizeIterator<Item = &Pair<'arena>> + '_ {
+    fn column(&self, index: usize) -> impl ExactSizeIterator<Item = &Pair<'arena>> + '_ {
         self.rows.iter().map(move |row| &row.pairs[index])
     }
 
-    pub fn row(&self, index: usize) -> &Row<'arena> {
+    fn row(&self, index: usize) -> &Row<'arena> {
         &self.rows[index]
     }
 
-    pub fn row_index(&self, index: usize) -> usize {
+    fn row_index(&self, index: usize) -> usize {
         self.indices[index]
     }
 
     /// Collect all the `Constructor`s in the `index`th column
-    pub fn column_constructors(&self, index: usize) -> Vec<Constructor<'arena>> {
+    fn column_constructors(&self, index: usize) -> Vec<Constructor<'arena>> {
         let mut ctors = Vec::with_capacity(self.num_rows());
         for (pat, _) in self.column(index) {
             match pat {
@@ -630,7 +630,7 @@ impl<'arena> Matrix<'arena> {
         ctors
     }
 
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&Row<'arena>, usize)> {
+    fn iter(&self) -> impl ExactSizeIterator<Item = (&Row<'arena>, usize)> {
         self.rows.iter().zip(self.indices.iter().copied())
     }
 }
@@ -651,44 +651,44 @@ impl<'arena> Row<'arena> {
         Row::new(vec![pair])
     }
 
-    pub fn tail(&self) -> Row<'arena> {
+    fn tail(&self) -> Row<'arena> {
         debug_assert!(!self.is_empty());
         Row::new(self.pairs[1..].to_vec())
     }
 
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.pairs.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.pairs.is_empty()
     }
 
-    pub fn first(&self) -> Option<&Pair<'arena>> {
+    fn first(&self) -> Option<&Pair<'arena>> {
         self.pairs.first()
     }
 
-    pub fn all_wildcards(&self) -> bool {
+    fn all_wildcards(&self) -> bool {
         self.pairs.iter().all(|(pat, _)| pat.is_wildcard())
     }
 
-    pub fn split_first(&self) -> Option<(&Pair<'arena>, Row<'arena>)> {
+    fn split_first(&self) -> Option<(&Pair<'arena>, Row<'arena>)> {
         let (first, rest) = self.pairs.split_first()?;
         Some((first, Row::new(rest.to_vec())))
     }
 
-    pub fn append(&mut self, mut other: Row<'arena>) {
+    fn append(&mut self, mut other: Row<'arena>) {
         self.pairs.append(&mut other.pairs);
     }
 
-    pub fn patterns(&self) -> impl ExactSizeIterator<Item = &CheckedPattern<'arena>> {
+    fn patterns(&self) -> impl ExactSizeIterator<Item = &CheckedPattern<'arena>> {
         self.pairs.iter().map(|(pattern, _)| pattern)
     }
 }
 
 impl<'arena> CheckedPattern<'arena> {
     /// Specialise `self` with respect to the constructor `ctor`.
-    pub fn specialize(
+    fn specialize(
         &self,
         ctx: &mut elaboration::Context<'_, 'arena>,
         ctor: &Constructor,
@@ -739,7 +739,7 @@ impl<'arena> CheckedPattern<'arena> {
 
 impl<'arena> Row<'arena> {
     /// Specialise `self` with respect to the constructor `ctor`.
-    pub fn specialize(
+    fn specialize(
         &self,
         ctx: &mut elaboration::Context<'_, 'arena>,
         ctor: &Constructor,
@@ -756,7 +756,7 @@ impl<'arena> Matrix<'arena> {
     /// Specialise `self` with respect to the constructor `ctor`.
     /// This is the `S` function in *Compiling pattern matching to good decision
     /// trees*
-    pub fn specialize(
+    fn specialize(
         &self,
         ctx: &mut elaboration::Context<'_, 'arena>,
         ctor: &Constructor,
