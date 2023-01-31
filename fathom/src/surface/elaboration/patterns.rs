@@ -532,12 +532,6 @@ impl<'arena> Constructor<'arena> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Matrix<'arena> {
-    rows: Vec<Row<'arena>>,
-    indices: Vec<usize>,
-}
-
-#[derive(Debug, Clone)]
 /// The right hand side of a match clause
 pub struct Body<'arena> {
     /// The expression to be evaluated
@@ -553,6 +547,12 @@ impl<'arena> Body<'arena> {
     ) -> Body<'arena> {
         Body { expr, defs }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Matrix<'arena> {
+    rows: Vec<Row<'arena>>,
+    indices: Vec<usize>,
 }
 
 impl<'arena> Matrix<'arena> {
