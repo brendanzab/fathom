@@ -19,11 +19,7 @@ pub enum CheckedPattern<'arena> {
     /// Constant literals
     ConstLit(ByteRange, Const),
     /// Record literals
-    RecordLit(
-        ByteRange,
-        &'arena [StringId],
-        &'arena [CheckedPattern<'arena>],
-    ),
+    RecordLit(ByteRange, &'arena [StringId], Vec<CheckedPattern<'arena>>),
 }
 
 impl<'arena> CheckedPattern<'arena> {
@@ -171,7 +167,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
                 let mut telescope = telescope.clone();
                 let mut pattern_fields = pattern_fields.iter();
-                let mut patterns = SliceVec::new(self.scope, labels.len());
+                let mut patterns = Vec::with_capacity(labels.len());
 
                 while let Some((field, (r#type, next_telescope))) = Option::zip(
                     pattern_fields.next(),
@@ -183,7 +179,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                     ))));
                     patterns.push(pattern);
                 }
-                CheckedPattern::RecordLit(*range, labels, patterns.into())
+                CheckedPattern::RecordLit(*range, labels, patterns)
             }
             (Pattern::TupleLiteral(range, elem_patterns), Value::RecordType(labels, telescope)) => {
                 if self
@@ -195,7 +191,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
                 let mut telescope = telescope.clone();
                 let mut elem_patterns = elem_patterns.iter();
-                let mut patterns = SliceVec::new(self.scope, elem_patterns.len());
+                let mut patterns = Vec::with_capacity(elem_patterns.len());
 
                 while let Some((pattern, (r#type, next_telescope))) = Option::zip(
                     elem_patterns.next(),
@@ -208,7 +204,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                     patterns.push(pattern);
                 }
 
-                CheckedPattern::RecordLit(*range, labels, patterns.into())
+                CheckedPattern::RecordLit(*range, labels, patterns)
             }
             _ => {
                 let range = pattern.range();
@@ -269,7 +265,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                 let (labels, pattern_fields) =
                     self.report_duplicate_labels(*range, pattern_fields, |f| f.label);
 
-                let mut patterns = SliceVec::new(self.scope, labels.len());
+                let mut patterns = Vec::with_capacity(labels.len());
                 let mut types = SliceVec::new(self.scope, labels.len());
 
                 for field in pattern_fields {
@@ -280,7 +276,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
                 let telescope = Telescope::new(self.local_env.exprs.clone(), types.into());
                 (
-                    CheckedPattern::RecordLit(*range, labels, patterns.into()),
+                    CheckedPattern::RecordLit(*range, labels, patterns),
                     Spanned::new(
                         file_range.into(),
                         Arc::new(Value::RecordType(labels, telescope)),
@@ -292,7 +288,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
                 let labels = interner.get_tuple_labels(0..elem_patterns.len());
                 let labels = self.scope.to_scope_from_iter(labels.iter().copied());
 
-                let mut patterns = SliceVec::new(self.scope, labels.len());
+                let mut patterns = Vec::with_capacity(labels.len());
                 let mut types = SliceVec::new(self.scope, labels.len());
 
                 for pattern in elem_patterns.iter() {
@@ -303,7 +299,7 @@ impl<'interner, 'arena> Context<'interner, 'arena> {
 
                 let telescope = Telescope::new(self.local_env.exprs.clone(), types.into());
                 (
-                    CheckedPattern::RecordLit(*range, labels, patterns.into()),
+                    CheckedPattern::RecordLit(*range, labels, patterns),
                     Spanned::new(
                         file_range.into(),
                         Arc::new(Value::RecordType(labels, telescope)),
@@ -793,6 +789,6 @@ mod tests {
     #[test]
     #[cfg(target_pointer_width = "64")]
     fn checked_pattern_size() {
-        assert_eq!(std::mem::size_of::<CheckedPattern>(), 48);
+        assert_eq!(std::mem::size_of::<CheckedPattern>(), 56);
     }
 }
